@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+{# 화면 목업 고정 템플릿 — Phase 0 에서는 LLM 없이 이 템플릿에 값만 주입한다.
+   .badge 의 번호(①②③…)는 항목 정의 표의 번호와 1:1 대응해야 한다. #}
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; margin: 0; font-family: 'Malgun Gothic', '맑은 고딕', sans-serif; }
+  body { width: 1120px; height: 864px; background: #fff; }
+  .window { width: 100%; height: 100%; border: 1px solid #c5c9d0; display: flex; flex-direction: column; }
+  .titlebar { background: #1f3b57; color: #fff; padding: 12px 18px; font-size: 16px; font-weight: 600; }
+  .breadcrumb { background: #f5f6f8; border-bottom: 1px solid #dde1e6; padding: 9px 18px; font-size: 13px; color: #556; }
+  .content { flex: 1; padding: 26px 30px; overflow: hidden; }
+  .field-row { display: flex; align-items: flex-start; margin-bottom: 16px; }
+  .field-label { width: 150px; padding-top: 7px; font-size: 14px; font-weight: 600; color: #222; }
+  .field-label .req { color: #d33; }
+  .control-wrap { position: relative; display: inline-block; }
+  .badge { position: absolute; top: -13px; right: -14px; color: #d33; font-size: 22px; font-weight: 700; line-height: 1; background: #fff; border-radius: 50%; }
+  input[type="text"], input[type="password"], .datebox {
+    width: 280px; height: 36px; border: 1px solid #b6bcc4; border-radius: 3px;
+    padding: 0 10px; font-size: 13px; background: #fff; }
+  select { width: 210px; height: 36px; border: 1px solid #b6bcc4; border-radius: 3px; font-size: 13px; background: #fff; padding: 0 6px; }
+  textarea { width: 600px; height: 150px; border: 1px solid #b6bcc4; border-radius: 3px; padding: 9px; font-size: 13px; resize: none; }
+  button { height: 36px; padding: 0 24px; background: #1f3b57; color: #fff; border: none; border-radius: 3px; font-size: 13px; cursor: default; }
+  a.link { display: inline-block; padding-top: 8px; font-size: 13px; color: #1a56a0; text-decoration: underline; }
+  table.grid { border-collapse: collapse; width: 660px; font-size: 13px; }
+  table.grid th, table.grid td { border: 1px solid #ccd1d8; padding: 8px 10px; text-align: left; }
+  table.grid th { background: #eef1f5; font-weight: 600; }
+  table.grid td { color: #aab; }
+  .filebox { width: 380px; height: 36px; border: 1px dashed #aab0b8; border-radius: 3px;
+    display: flex; align-items: center; padding: 0 12px; color: #99a; font-size: 13px; background: #fafbfc; }
+  .block { width: 660px; height: 140px; border: 1px dashed #aab0b8; border-radius: 4px;
+    display: flex; align-items: center; justify-content: center; color: #99a; font-size: 13px; background: #fafbfc; }
+</style>
+</head>
+<body>
+<div class="window">
+  <div class="titlebar">{{ screen_name }}</div>
+  <div class="breadcrumb">{{ menu_path }}</div>
+  <div class="content">
+    {% for f in fields %}
+    <div class="field-row">
+      <div class="field-label">{{ f.name }}{% if f.required %}<span class="req"> *</span>{% endif %}</div>
+      <div class="control-wrap">
+        {% if "비밀번호" in f.field_type %}<input type="password" value="••••••••">
+        {% elif "콤보" in f.field_type or "셀렉트" in f.field_type %}<select><option>선택하세요</option></select>
+        {% elif "버튼" in f.field_type %}<button type="button">{{ f.name }}</button>
+        {% elif "링크" in f.field_type %}<a class="link" href="#">{{ f.name }}</a>
+        {% elif "그리드" in f.field_type %}
+        <table class="grid">
+          <tr><th>구분</th><th>제목</th><th>작성자</th><th>작성일</th></tr>
+          <tr><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+          <tr><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+          <tr><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+        </table>
+        {% elif "에디터" in f.field_type %}<textarea readonly></textarea>
+        {% elif "파일" in f.field_type %}<div class="filebox">파일을 선택하세요</div>
+        {% elif "날짜" in f.field_type %}<input class="datebox" type="text" value="YYYY-MM-DD ~ YYYY-MM-DD">
+        {% elif "카드" in f.field_type or "차트" in f.field_type %}<div class="block">{{ f.name }} 영역</div>
+        {% else %}<input type="text" placeholder="{{ f.name }}">
+        {% endif %}
+        <span class="badge">{{ f.badge }}</span>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+</body>
+</html>
