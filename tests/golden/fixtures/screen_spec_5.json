@@ -1,0 +1,75 @@
+{
+  "project_name": "차세대 통합 업무시스템 구축",
+  "system_name": "통합 업무포털",
+  "author": "홍길동",
+  "written_date": "2026-06-13",
+  "screens": [
+    {
+      "screen_id": "SCR-001",
+      "screen_name": "로그인",
+      "menu_path": "공통 > 로그인",
+      "fields": [
+        {"no": 1, "name": "사용자 ID", "field_type": "텍스트박스", "required": true, "description": "로그인 ID 입력"},
+        {"no": 2, "name": "비밀번호", "field_type": "비밀번호박스", "required": true, "description": "마스킹 처리"},
+        {"no": 3, "name": "로그인", "field_type": "버튼", "required": false, "description": "인증 요청"},
+        {"no": 4, "name": "비밀번호 찾기", "field_type": "링크", "required": false, "description": "재설정 화면 이동"}
+      ],
+      "logic": ["입력된 ID/비밀번호로 인증을 요청한다", "비밀번호 5회 오류 시 계정을 잠금 처리한다", "인증 성공 시 메인 화면으로 이동한다"]
+    },
+    {
+      "screen_id": "SCR-002",
+      "screen_name": "사용자 등록",
+      "menu_path": "사용자 관리 > 사용자 등록",
+      "fields": [
+        {"no": 1, "name": "사용자 ID", "field_type": "텍스트박스", "required": true, "description": "영문/숫자 4~20자"},
+        {"no": 2, "name": "중복확인", "field_type": "버튼", "required": false, "description": "ID 중복 검사"},
+        {"no": 3, "name": "성명", "field_type": "텍스트박스", "required": true, "description": ""},
+        {"no": 4, "name": "부서", "field_type": "콤보박스", "required": true, "description": "조직도 연동"},
+        {"no": 5, "name": "권한", "field_type": "콤보박스", "required": true, "description": "일반/관리자"},
+        {"no": 6, "name": "저장", "field_type": "버튼", "required": false, "description": "유효성 검사 후 저장"}
+      ],
+      "logic": ["중복확인 미수행 시 저장을 차단한다", "필수 항목 누락 시 해당 항목에 포커스를 이동한다", "저장 성공 시 목록 화면으로 이동한다"]
+    },
+    {
+      "screen_id": "SCR-003",
+      "screen_name": "공지사항 목록",
+      "menu_path": "게시판 > 공지사항",
+      "fields": [
+        {"no": 1, "name": "검색 구분", "field_type": "콤보박스", "required": false, "description": "제목/내용/작성자"},
+        {"no": 2, "name": "검색어", "field_type": "텍스트박스", "required": false, "description": ""},
+        {"no": 3, "name": "검색", "field_type": "버튼", "required": false, "description": "조건 검색 실행"},
+        {"no": 4, "name": "공지 목록", "field_type": "그리드", "required": false, "description": "페이징 10건 기본"},
+        {"no": 5, "name": "등록", "field_type": "버튼", "required": false, "description": "권한자만 노출"}
+      ],
+      "logic": ["목록은 작성일 내림차순으로 조회한다", "검색 조건과 페이징 상태를 유지한다", "등록 버튼은 공지 작성 권한자에게만 표시한다"]
+    },
+    {
+      "screen_id": "SCR-004",
+      "screen_name": "기안 작성",
+      "menu_path": "전자결재 > 기안 작성",
+      "fields": [
+        {"no": 1, "name": "결재 양식", "field_type": "콤보박스", "required": true, "description": "양식 선택"},
+        {"no": 2, "name": "제목", "field_type": "텍스트박스", "required": true, "description": ""},
+        {"no": 3, "name": "본문", "field_type": "에디터", "required": true, "description": "리치 텍스트"},
+        {"no": 4, "name": "첨부파일", "field_type": "파일첨부", "required": false, "description": "개당 10MB 이하"},
+        {"no": 5, "name": "결재선 지정", "field_type": "버튼", "required": true, "description": "결재선 팝업 호출"},
+        {"no": 6, "name": "상신", "field_type": "버튼", "required": false, "description": "결재 요청"},
+        {"no": 7, "name": "임시저장", "field_type": "버튼", "required": false, "description": ""}
+      ],
+      "logic": ["결재선 미지정 시 상신을 차단한다", "상신 시 첫 결재자에게 알림을 발송한다", "임시저장 문서는 기안함에서 재작성할 수 있다"]
+    },
+    {
+      "screen_id": "SCR-005",
+      "screen_name": "통계 대시보드",
+      "menu_path": "통계 > 대시보드",
+      "fields": [
+        {"no": 1, "name": "조회 기간", "field_type": "날짜선택기", "required": true, "description": "시작일~종료일"},
+        {"no": 2, "name": "조회", "field_type": "버튼", "required": false, "description": ""},
+        {"no": 3, "name": "요약 카드", "field_type": "카드", "required": false, "description": "주요 지표 4종"},
+        {"no": 4, "name": "추이 차트", "field_type": "차트", "required": false, "description": "막대/선형 전환"},
+        {"no": 5, "name": "엑셀 다운로드", "field_type": "버튼", "required": false, "description": "조회 결과 다운로드"}
+      ],
+      "logic": ["권한에 따라 조회 데이터 범위를 제한한다", "조회 결과 0건 시 안내 문구를 표시한다"]
+    }
+  ]
+}
