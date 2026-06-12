@@ -1,0 +1,29 @@
+# si-docgen — 한국 SI 표준 산출물 자동 생성기
+# Python 의존성은 uv로 관리한다 (frontend는 pnpm 별도 관리).
+
+[project]
+name = "si-docgen"
+version = "0.1.0"
+description = "한국 SI 프로젝트 표준 산출물(테스트시나리오, 요구사항정의서, 화면정의서 등) LLM 기반 자동 생성기"
+requires-python = ">=3.12"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.8",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["backend"]
+
+[tool.ruff.lint]
+# E/W: pycodestyle, F: pyflakes, I: isort, UP: pyupgrade, B: bugbear
+select = ["E", "W", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# 테스트에서 `import app.…` 형태로 backend 패키지를 임포트하기 위한 경로 설정
+pythonpath = ["backend"]

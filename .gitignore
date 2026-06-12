@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
+
+# 환경 변수 / 비밀 정보 (절대 커밋 금지)
+.env
+.env.*
+
+# Node / frontend
+node_modules/
+.next/
+
+# 생성된 산출물 (골든 파일 기대값은 tests/golden/ 에 별도 보관)
+out/
+
+# OS / 편집기
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
