@@ -12,7 +12,7 @@
 ## 현재 상태
 
 - **현재 Phase**: Phase 0 — 렌더러 PoC
-- **진행 중 태스크**: 없음 (P0-1부터 시작)
+- **진행 중 태스크**: 없음 (다음: P0-2)
 - **차단 사항**: 없음
 
 ---
@@ -23,9 +23,9 @@
 LLM 호출은 이 Phase에 포함되지 않는다. 품질이 안 나오면 이후 Phase는 무의미하므로 여기서 기술 리스크를 전부 제거한다.
 
 ### P0-1. 프로젝트 스캐폴딩
-- [ ] 디렉토리 구조 생성 (CLAUDE.md의 구조 그대로), uv 초기화, ruff/pytest 설정
+- [x] 디렉토리 구조 생성 (CLAUDE.md의 구조 그대로), uv 초기화, ruff/pytest 설정
 - **AC**: `uv run pytest` 가 빈 테스트로 통과하고, `uv run ruff check` 가 통과한다.
-- 메모:
+- 메모: uv 프로젝트 루트는 저장소 루트(pyproject.toml), pytest `pythonpath=["backend"]` 설정으로 테스트에서 `import app.…` 사용. git 저장소 신규 init(main 브랜치). 렌더링 라이브러리(openpyxl 등)는 각 렌더러 태스크에서 `uv add`로 추가할 것.
 
 ### P0-2. 테스트시나리오 엑셀 양식 제작
 - [ ] 전형적인 한국 SI 단위테스트 시나리오 양식을 `backend/templates/test_scenario.xlsx` 로 직접 제작
