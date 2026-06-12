@@ -101,10 +101,10 @@ LLM 호출이 처음 들어가는 Phase 이므로, "LLM은 JSON만 생성 + Pyda
 - 메모: `SourceParseError` 예외 신설. 표 추출은 docx 만 지원(pdf 표는 텍스트로 평탄화됨). 픽스처 pdf 는 Chromium 인쇄로 생성.
 
 ### P1-3. 테스트시나리오 생성 프롬프트 + 평가 스크립트
-- [ ] `backend/app/llm/prompts.py` — 테스트시나리오 생성 프롬프트 템플릿. 스키마 필드의 한국어 description 을 자동 포함해 출력 형식을 지시
-- [ ] `scripts/eval/eval_test_scenario.py` — 실제 LLM 을 호출해 ① 검증 통과율(재시도 포함) ② TC/REQ ID 형식 적합성 ③ 생성 건수 분포를 리포트 (pytest 와 분리된 수동 실행 스크립트)
+- [~] `backend/app/llm/prompts.py` — 테스트시나리오 생성 프롬프트 템플릿. 스키마 필드의 한국어 description 을 자동 포함해 출력 형식을 지시 (구현 완료)
+- [~] `scripts/eval/eval_test_scenario.py` — 실제 LLM 을 호출해 ① 검증 통과율(재시도 포함) ② TC/REQ ID 형식 적합성 ③ 생성 건수 분포를 리포트 (구현 완료, 합격 기준 미달성)
 - **AC**: 평가 스크립트가 샘플 원천 문서로 end-to-end 생성 리포트를 출력한다. 프롬프트는 코드와 분리된 상수/템플릿으로 관리된다.
-- 메모:
+- 메모: 코드 완료·커밋됨, 그러나 gemma4:12b 평가 실패 — ① JSON 모드: 필드 누락으로 검증 3회 실패 ② 구조화 출력(JSON Schema 강제) 적용 후: 600초 타임아웃(이 PC에서 12B + 큰 스키마 제약 추론이 너무 느림). 다음 세션 선택지: 더 작은 모델(gemma4:e4b pull), 다른 로컬 모델(qwen3:14b 등), 타임아웃 대폭 증가, 또는 상용 모델로 평가. 모델 결정 후 재평가 필요.
 
 ### P1-4. RTM 스키마/렌더러 + ID 정합성 검증
 - [ ] `backend/templates/rtm.xlsx` 양식 제작 (제작 스크립트 `scripts/templates/build_rtm_template.py`) — 요건 ID/요건명/화면 ID/프로그램 ID/TC ID/단계별 반영 여부, 서식 기준 행 방식은 P0-3 과 동일
