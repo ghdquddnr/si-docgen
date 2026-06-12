@@ -1,0 +1,53 @@
+"""LiteLLM 기반 LLM 호출 래퍼.
+
+LLM 호출은 반드시 이 모듈을 경유한다 (벤더 SDK 직접 호출 금지).
+모델명·토큰 수·소요 시간은 INFO, 프롬프트 본문은 DEBUG 레벨로 기록한다.
+"""
+
+import logging
+import time
+
+from app.config import get_settings
+from app.exceptions import LLMError
+
+logger = logging.getLogger(__name__)
+
+
+def complete_json(prompt: str, *, system: str | None = None) -> str:
+    """JSON 모드로 LLM 을 호출해 응답 본문 문자열을 반환한다."""
+    # litellm 은 임포트가 무겁기(수 초) 때문에 실제 호출 시점에 지연 임포트한다
+    from litellm import completion
+
+    settings = get_settings()
+    messages: list[dict[str, str]] = []
+    if system:
+        messages.append({"role": "system", "content": system})
+    messages.append({"role": "user", "content": prompt})
+
+    logger.debug("LLM 프롬프트(system=%s):\n%s", bool(system), prompt)
+    start = time.monotonic()
+    try:
+        response = completion(
+            model=settings.llm_model,
+            messages=messages,
+            response_format={"type": "json_object"},
+            api_base=settings.llm_api_base,
+            timeout=settings.llm_timeout,
+        )
+    except Exception as exc:  # litellm 은 벤더별 예외를 던지므로 광범위하게 잡아 변환한다
+        raise LLMError(f"LLM 호출 실패 (model={settings.llm_model}): {exc}") from exc
+    elapsed = time.monotonic() - start
+
+    usage = getattr(response, "usage", None)
+    logger.info(
+        "LLM 호출 완료: model=%s tokens(prompt=%s, completion=%s) elapsed=%.1fs",
+        settings.llm_model,
+        getattr(usage, "prompt_tokens", "?"),
+        getattr(usage, "completion_tokens", "?"),
+        elapsed,
+    )
+
+    content = response.choices[0].message.content
+    if not content:
+        raise LLMError(f"LLM 응답이 비어 있습니다 (model={settings.llm_model})")
+    return content

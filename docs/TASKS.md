@@ -88,11 +88,11 @@ LLM 호출이 처음 들어가는 Phase 이므로, "LLM은 JSON만 생성 + Pyda
 > 2. 신규 의존성 승인: `litellm`(스택 명시됨), `pydantic-settings`(설정 관리), `pypdf`(PDF 파싱)
 
 ### P1-1. LiteLLM 래퍼 + 검증-재시도 루프
-- [ ] `backend/app/config.py` — 모델명/타임아웃/재시도 횟수 설정 (환경 변수 + `.env`, 모델명은 설정에서만 관리)
-- [ ] `backend/app/llm/client.py` — LiteLLM 기반 JSON 모드 호출 래퍼. 모델명·토큰 수·소요 시간 INFO 로깅, 프롬프트 본문은 DEBUG
-- [ ] `backend/app/llm/generate.py` — `generate_validated(prompt, schema_cls) -> BaseModel`: JSON 파싱 → Pydantic 검증 → 실패 시 오류 내용을 포함해 최대 3회 재시도 → 최종 실패 시 `ValidationFailedError`
+- [x] `backend/app/config.py` — 모델명/타임아웃/재시도 횟수 설정 (환경 변수 + `.env`, 모델명은 설정에서만 관리)
+- [x] `backend/app/llm/client.py` — LiteLLM 기반 JSON 모드 호출 래퍼. 모델명·토큰 수·소요 시간 INFO 로깅, 프롬프트 본문은 DEBUG
+- [x] `backend/app/llm/generate.py` — `generate_validated(prompt, schema_cls) -> BaseModel`: JSON 파싱 → Pydantic 검증 → 실패 시 오류 내용을 포함해 최대 3회 재시도 → 최종 실패 시 `ValidationFailedError`
 - **AC**: LLM 모킹 테스트로 ① 1~2회 실패 후 재시도 성공 ② 3회 실패 시 예외 발생 ③ 미검증 데이터가 절대 반환되지 않음을 검증. 실제 API 호출 테스트는 작성하지 않는다.
-- 메모:
+- 메모: 기본 모델 `ollama/gemma4:e4b`(사용자 결정, 임시), `.env.example` 참조. 설정 접두사 `SIDOCGEN_`. litellm 은 임포트가 무거워 호출 시점 지연 임포트 처리(테스트 속도 24s→1.4s). 실제 Ollama 호출 확인은 P1-3 평가 스크립트에서.
 
 ### P1-2. 원천 문서 파서
 - [ ] `backend/app/pipelines/source_loader.py` — 입력 파일 확장자별 텍스트 추출: `.docx`(python-docx, 표 내용 포함), `.md`/`.txt`(plain), `.pdf`(pypdf)
