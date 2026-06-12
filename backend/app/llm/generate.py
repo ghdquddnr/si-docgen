@@ -35,9 +35,10 @@ def generate_validated[T: BaseModel](
     attempts = max_attempts or get_settings().llm_max_attempts
     current_prompt = prompt
     last_error = ""
+    json_schema = schema_cls.model_json_schema()
 
     for attempt in range(1, attempts + 1):
-        raw = complete_json(current_prompt, system=system)
+        raw = complete_json(current_prompt, system=system, json_schema=json_schema)
         try:
             data = json.loads(raw)
         except json.JSONDecodeError as exc:

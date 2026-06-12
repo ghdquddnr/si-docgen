@@ -13,8 +13,14 @@ from app.exceptions import LLMError
 logger = logging.getLogger(__name__)
 
 
-def complete_json(prompt: str, *, system: str | None = None) -> str:
-    """JSON 모드로 LLM 을 호출해 응답 본문 문자열을 반환한다."""
+def complete_json(
+    prompt: str, *, system: str | None = None, json_schema: dict | None = None
+) -> str:
+    """JSON 모드로 LLM 을 호출해 응답 본문 문자열을 반환한다.
+
+    json_schema 가 주어지면 구조화 출력(스키마 강제)을 요청한다 — 로컬 모델처럼
+    프롬프트 지시만으로 필드를 누락하기 쉬운 모델에서 검증 통과율을 크게 높인다.
+    """
     # litellm 은 임포트가 무겁기(수 초) 때문에 실제 호출 시점에 지연 임포트한다
     from litellm import completion
 
@@ -24,13 +30,21 @@ def complete_json(prompt: str, *, system: str | None = None) -> str:
         messages.append({"role": "system", "content": system})
     messages.append({"role": "user", "content": prompt})
 
+    if json_schema is not None:
+        response_format: dict = {
+            "type": "json_schema",
+            "json_schema": {"name": "output", "schema": json_schema, "strict": True},
+        }
+    else:
+        response_format = {"type": "json_object"}
+
     logger.debug("LLM 프롬프트(system=%s):\n%s", bool(system), prompt)
     start = time.monotonic()
     try:
         response = completion(
             model=settings.llm_model,
             messages=messages,
-            response_format={"type": "json_object"},
+            response_format=response_format,
             api_base=settings.llm_api_base,
             timeout=settings.llm_timeout,
         )

@@ -26,8 +26,11 @@ class FakeLLM:
         self.responses = responses
         self.prompts: list[str] = []
 
-    def __call__(self, prompt: str, *, system: str | None = None) -> str:
+    def __call__(
+        self, prompt: str, *, system: str | None = None, json_schema: dict | None = None
+    ) -> str:
         self.prompts.append(prompt)
+        self.last_schema = json_schema
         return self.responses[len(self.prompts) - 1]
 
 

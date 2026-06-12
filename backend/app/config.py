@@ -15,8 +15,9 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="SIDOCGEN_", env_file=".env", extra="ignore")
 
-    # LiteLLM 모델 식별자 (예: ollama/gemma4:e4b, anthropic/claude-sonnet-4-6)
-    llm_model: str = "ollama/gemma4:e4b"
+    # LiteLLM 모델 식별자 (예: ollama/gemma4:12b, anthropic/claude-sonnet-4-6)
+    # 기본값은 개발 PC에 설치된 로컬 모델 기준이며 .env 로 전환한다
+    llm_model: str = "ollama/gemma4:12b"
     # OpenAI 호환 게이트웨이 등 별도 엔드포인트 사용 시 지정 (Ollama 는 미지정 시 localhost:11434)
     llm_api_base: str | None = None
     # LLM 호출 1회 타임아웃 (초)

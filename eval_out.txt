@@ -1,0 +1,12 @@
+04:37:16 - LiteLLM:INFO: utils.py:4083 - 
+LiteLLM completion() model= gemma4:12b; provider = ollama
+INFO LiteLLM: 
+LiteLLM completion() model= gemma4:12b; provider = ollama
+04:46:34 - LiteLLM:INFO: utils.py:1656 - Wrapper: Completed Call, calling success_handler
+INFO LiteLLM: Wrapper: Completed Call, calling success_handler
+INFO app.llm.client: LLM 호출 완료: model=ollama/gemma4:12b tokens(prompt=1758, completion=2716) elapsed=557.2s
+WARNING app.llm.generate: LLM 출력 검증 실패 (시도 1/3, schema=TestScenarioDocument): JSON 파싱 실패: Expecting value: line 1 column 1 (char 0)
+04:46:34 - LiteLLM:INFO: utils.py:4083 - 
+LiteLLM completion() model= gemma4:12b; provider = ollama
+INFO LiteLLM: 
+LiteLLM completion() model= gemma4:12b; provider = ollama
