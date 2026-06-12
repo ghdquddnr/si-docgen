@@ -95,10 +95,10 @@ LLM 호출이 처음 들어가는 Phase 이므로, "LLM은 JSON만 생성 + Pyda
 - 메모: 기본 모델 `ollama/gemma4:e4b`(사용자 결정, 임시), `.env.example` 참조. 설정 접두사 `SIDOCGEN_`. litellm 은 임포트가 무거워 호출 시점 지연 임포트 처리(테스트 속도 24s→1.4s). 실제 Ollama 호출 확인은 P1-3 평가 스크립트에서.
 
 ### P1-2. 원천 문서 파서
-- [ ] `backend/app/pipelines/source_loader.py` — 입력 파일 확장자별 텍스트 추출: `.docx`(python-docx, 표 내용 포함), `.md`/`.txt`(plain), `.pdf`(pypdf)
-- [ ] 추출 결과는 `SourceDocument(filename, text, tables)` 형태의 단순 모델로 통일
+- [x] `backend/app/pipelines/source_loader.py` — 입력 파일 확장자별 텍스트 추출: `.docx`(python-docx, 표 내용 포함), `.md`/`.txt`(plain), `.pdf`(pypdf)
+- [x] 추출 결과는 `SourceDocument(filename, text, tables)` 형태의 단순 모델로 통일
 - **AC**: 픽스처 원천 문서(docx/md/pdf 각 1개, `tests/fixtures/sources/`)에서 본문과 표 텍스트가 추출됨을 단위 테스트로 검증. 미지원 확장자는 명확한 예외.
-- 메모:
+- 메모: `SourceParseError` 예외 신설. 표 추출은 docx 만 지원(pdf 표는 텍스트로 평탄화됨). 픽스처 pdf 는 Chromium 인쇄로 생성.
 
 ### P1-3. 테스트시나리오 생성 프롬프트 + 평가 스크립트
 - [ ] `backend/app/llm/prompts.py` — 테스트시나리오 생성 프롬프트 템플릿. 스키마 필드의 한국어 description 을 자동 포함해 출력 형식을 지시

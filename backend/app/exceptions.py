@@ -16,5 +16,9 @@ class RenderError(SiDocgenError):
     """산출물 렌더링 오류 (템플릿 파일 누락, 시트/플레이스홀더 구조 불일치 등)."""
 
 
+class SourceParseError(SiDocgenError):
+    """원천 문서 파싱 오류 (미지원 형식, 손상된 파일 등)."""
+
+
 class LLMError(SiDocgenError):
     """LLM 호출 계층 오류 (타임아웃, 응답 형식 오류, 벤더 API 오류 등)."""
