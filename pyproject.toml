@@ -7,6 +7,7 @@ version = "0.1.0"
 description = "한국 SI 프로젝트 표준 산출물(테스트시나리오, 요구사항정의서, 화면정의서 등) LLM 기반 자동 생성기"
 requires-python = ">=3.12"
 dependencies = [
+    "docxtpl>=0.20.2",
     "openpyxl>=3.1.5",
     "pydantic>=2.13.4",
 ]

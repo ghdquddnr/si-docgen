@@ -1,0 +1,28 @@
+{
+  "project_name": "차세대 통합 업무시스템 구축",
+  "system_name": "통합 업무포털",
+  "doc_no": "REQ-SPEC-2026-001",
+  "author": "홍길동",
+  "written_date": "2026-06-13",
+  "revisions": [
+    {"version": "0.9", "revised_date": "2026-06-01", "author": "홍길동", "description": "초안 작성"},
+    {"version": "1.0", "revised_date": "2026-06-13", "author": "홍길동", "description": "내부 검토 의견 반영 및 확정"}
+  ],
+  "requirements": [
+    {"req_id": "REQ-001", "name": "사용자 로그인", "category": "기능", "priority": "상", "description": "사용자는 ID와 비밀번호로 로그인할 수 있어야 한다. 비밀번호 5회 오류 시 계정을 잠금 처리하고, 미등록 ID와 비밀번호 오류를 구분하지 않는 단일 오류 메시지를 표시한다.", "note": ""},
+    {"req_id": "REQ-002", "name": "세션 및 비밀번호 정책", "category": "보안", "priority": "상", "description": "비밀번호 변경 90일 경과 시 변경을 안내하고, 로그아웃 또는 30분 무활동 시 세션을 종료한다.", "note": "내부 보안 지침 준수"},
+    {"req_id": "REQ-010", "name": "사용자 등록", "category": "기능", "priority": "상", "description": "관리자는 신규 사용자를 등록할 수 있어야 한다. ID 중복 확인을 필수로 수행하고, 필수 항목 누락 시 저장을 차단한다.", "note": ""},
+    {"req_id": "REQ-011", "name": "사용자 정보 수정", "category": "기능", "priority": "중", "description": "관리자는 사용자의 부서·권한 정보를 수정할 수 있어야 하며, 변경 내용은 즉시 반영된다.", "note": ""},
+    {"req_id": "REQ-012", "name": "사용자 사용중지", "category": "기능", "priority": "중", "description": "사용자 삭제는 물리 삭제가 아닌 사용중지 상태 변경으로 처리하고, 사용중지 계정의 로그인을 차단한다.", "note": "이력 보존 목적"},
+    {"req_id": "REQ-020", "name": "공지사항 관리", "category": "기능", "priority": "중", "description": "공지 작성 권한자는 공지사항을 등록·수정·삭제할 수 있어야 하며, 신규 공지는 목록 최상단에 노출된다.", "note": ""},
+    {"req_id": "REQ-021", "name": "첨부파일 제한", "category": "비기능", "priority": "중", "description": "첨부파일은 개당 10MB 이하, 실행 파일 등 위험 확장자는 차단한다.", "note": "허용 확장자 목록 별첨"},
+    {"req_id": "REQ-022", "name": "게시판 조회·검색", "category": "기능", "priority": "중", "description": "게시판 목록은 페이징을 지원하고 제목·내용·작성자 기준 키워드 검색을 제공한다.", "note": ""},
+    {"req_id": "REQ-030", "name": "기안 상신", "category": "기능", "priority": "상", "description": "사용자는 양식을 선택해 기안 문서를 작성하고 결재선을 지정해 상신할 수 있어야 한다. 결재선 미지정 시 상신을 차단한다.", "note": ""},
+    {"req_id": "REQ-031", "name": "결재 처리", "category": "기능", "priority": "상", "description": "결재자는 대기 문서를 승인 또는 반려할 수 있어야 하며, 처리 의견과 이력이 기록되고 다음 결재자/기안자에게 알림이 발송된다.", "note": ""},
+    {"req_id": "REQ-032", "name": "상신 문서 회수", "category": "기능", "priority": "중", "description": "첫 결재자가 처리하기 전이라면 기안자는 상신 문서를 회수해 임시저장 상태로 되돌릴 수 있어야 한다.", "note": ""},
+    {"req_id": "REQ-040", "name": "통계 대시보드", "category": "기능", "priority": "중", "description": "기간별 업무 통계를 수치와 차트로 제공하고, 조회 결과 0건 시 안내 문구를 표시한다.", "note": ""},
+    {"req_id": "REQ-041", "name": "통계 엑셀 다운로드", "category": "기능", "priority": "하", "description": "조회된 통계 결과를 화면과 동일한 내용의 엑셀 파일로 다운로드할 수 있어야 한다.", "note": ""},
+    {"req_id": "REQ-042", "name": "권한별 데이터 범위", "category": "보안", "priority": "상", "description": "통계 데이터는 사용자 권한(부서/전사)에 따라 조회 범위를 제한한다.", "note": ""},
+    {"req_id": "REQ-050", "name": "대외기관 연계 송신", "category": "인터페이스", "priority": "상", "description": "대외기관으로 데이터를 송신하고 응답 코드를 로그로 기록한다. 타임아웃 시 3회 자동 재시도하고 최종 실패 시 관리자에게 알림을 발송한다.", "note": "연계 규격서 v2.1 기준"}
+  ]
+}
