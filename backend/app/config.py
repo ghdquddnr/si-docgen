@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     # 잡별 업로드 원천 파일·산출물 저장 루트 디렉토리
     storage_dir: str = "./data/jobs"
 
+    # SSE 진행 상태 스트림의 DB 폴링 간격(초). 테스트에서는 0 으로 낮춘다
+    sse_poll_interval: float = 0.3
+
 
 @lru_cache
 def get_settings() -> Settings:

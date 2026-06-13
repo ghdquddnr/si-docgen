@@ -7,6 +7,7 @@ LLM 호출은 generate_validated 한 곳으로 격리되며, RTM 은 LLM 을 거
 """
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -43,15 +44,24 @@ def generate_scenario(
     system_name: str,
     author: str,
     written_date: str,
+    on_progress: Callable[[str], None] | None = None,
 ) -> TestScenarioDocument:
     """원천 문서 1건에서 검증된 테스트시나리오(JSON 모델)를 생성한다 (렌더링 제외).
 
     웹 흐름에서는 이 결과를 저장해 사람이 검수한 뒤 render_scenario_and_rtm 으로 렌더링한다.
     표지 정보(project_name 등)는 원천 문서에서 안정적으로 추출하기 어려워 인자로 받는다.
+    on_progress 가 주어지면 단계 전환 시 단계명(parsing/generating)을 통지한다 (SSE 진행 표시용).
     """
+
+    def report(stage: str) -> None:
+        if on_progress is not None:
+            on_progress(stage)
+
+    report("parsing")
     logger.info("원천 문서 파싱: %s", input_path)
     source = load_source(input_path)
 
+    report("generating")
     logger.info("테스트시나리오 LLM 생성 시작 (검증-재시도 루프)")
     prompt = build_test_scenario_prompt(
         source,

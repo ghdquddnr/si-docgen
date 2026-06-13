@@ -84,7 +84,12 @@ def run_job(job_id: str) -> None:
             logger.error("실행할 잡을 찾을 수 없음: %s", job_id)
             return
         job.status = JobStatus.RUNNING
+        job.progress = "queued"
         db.commit()
+
+        def report(stage: str) -> None:
+            job.progress = stage
+            db.commit()
 
         try:
             scenario = generate_scenario(
@@ -93,13 +98,16 @@ def run_job(job_id: str) -> None:
                 system_name=job.system_name,
                 author=job.author,
                 written_date=job.written_date or "",
+                on_progress=report,
             )
             job.scenario_json = scenario.model_dump(mode="json")
             job.status = JobStatus.SUCCEEDED
+            job.progress = "done"
             job.error = None
             logger.info("잡 완료: id=%s", job_id)
         except Exception as exc:  # 백그라운드라 모든 예외를 잡아 잡 상태로 기록한다
             job.status = JobStatus.FAILED
+            job.progress = "error"
             job.error = str(exc)
             logger.exception("잡 실패: id=%s", job_id)
         db.commit()

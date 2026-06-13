@@ -33,6 +33,8 @@ class Job(Base):
         SAEnum(JobStatus, native_enum=False, length=16), default=JobStatus.PENDING, index=True
     )
     input_filename: Mapped[str] = mapped_column(String(255))
+    # 진행 단계 표시(파싱/LLM 생성/완료 등). SSE 스트림용 세분 상태이며 status 와 별개
+    progress: Mapped[str | None] = mapped_column(String(32), nullable=True)
     project_name: Mapped[str] = mapped_column(String(255), default="프로젝트")
     system_name: Mapped[str] = mapped_column(String(255), default="시스템")
     author: Mapped[str] = mapped_column(String(255), default="작성자")

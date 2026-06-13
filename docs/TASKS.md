@@ -154,9 +154,9 @@ LLM 호출이 처음 들어가는 Phase 이므로, "LLM은 JSON만 생성 + Pyda
 - 메모: 파이프라인을 **`generate_scenario`(JSON 까지)** 와 **`render_scenario_and_rtm`(렌더링)** 으로 분리 — 웹은 생성 후 JSON 만 저장하고 렌더링은 검수 후(P2-5). 서비스 `app/services/job_service.py`: `create_job`(파일 저장 `data/jobs/{id}/source<ext>` + Job 행) / `run_job`(자체 `SessionLocal` 세션으로 백그라운드 실행, 모든 예외를 잡 상태 failed+error 로 기록). `storage_dir` 설정 추가. 빈 작성일은 오늘로 보정(미보정 시 LLM 이 written_date="" 출력→검증 실패). 미지원 확장자는 `UnsupportedSourceError`→400, 미존재 잡 404. FastAPI 파라미터는 `Annotated[...,File()/Form()/Depends()]` 스타일(ruff B008 회피). TestClient 는 BackgroundTasks 를 응답 후 동기 실행 → POST 직후 완료 검증 가능. 4건 추가(총 118건).
 
 ### P2-3. SSE 진행 상태 스트림
-- [ ] `GET /jobs/{id}/events` — 잡 진행 단계(파싱/LLM 생성/렌더링/완료)를 SSE 로 푸시
+- [x] `GET /jobs/{id}/events` — 잡 진행 단계(파싱/LLM 생성/렌더링/완료)를 SSE 로 푸시
 - **AC**: 잡 진행에 따라 이벤트가 순서대로 전달되고 완료 시 종료됨을 테스트로 확인.
-- 메모:
+- 메모: `sse-starlette` 의 `EventSourceResponse`. 백그라운드 워커와 메모리 공유 없이 **DB 폴링**으로 상태 전파(멀티프로세스 안전). `Job.progress`(String(32)) 컬럼 신설 + 마이그레이션, `generate_scenario(on_progress=...)` 콜백으로 parsing→generating 단계 통지, `run_job` 이 각 단계에서 progress 갱신·commit. 폴링 간격 설정 `sse_poll_interval`(테스트 0). 스냅샷 변경 시에만 emit, terminal 상태에서 스트림 종료. 테스트: 진행 순서(read_job_state 스크립트 대체)·완료 종료·없는 잡 에러 3건. 총 121건.
 
 ### P2-4. 결과 조회 + JSON 검수(편집)
 - [ ] `GET /jobs/{id}` 생성 JSON 반환, `PUT /jobs/{id}/scenario` 편집본을 Pydantic 재검증(+RTM 정합성)

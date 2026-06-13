@@ -5,7 +5,7 @@
 
 from fastapi import FastAPI
 
-from app.api.routers import health, jobs
+from app.api.routers import events, health, jobs
 
 app = FastAPI(
     title="si-docgen API",
@@ -15,3 +15,4 @@ app = FastAPI(
 
 app.include_router(health.router)
 app.include_router(jobs.router)
+app.include_router(events.router)
