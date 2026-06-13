@@ -169,9 +169,9 @@ LLM 호출이 처음 들어가는 Phase 이므로, "LLM은 JSON만 생성 + Pyda
 - 메모: `render_job_outputs(job_id, scenario_json)` → `output_dir = data/jobs/{id}/output`. POST /render 동기 처리(LLM 미사용, 빠름), 시나리오 미생성 시 409. `download/{kind}`(kind: test_scenario|rtm), 미렌더링 시 409, 알수없는 종류 404, `FileResponse`+xlsx media type. 테스트 5건: 렌더링→다운로드(xlsx 유효성 openpyxl 검증)/렌더링 전 409/알수없는 종류 404/**편집→재렌더링 반영 확인**/없는 잡 404. 총 133건. **→ P2 백엔드(API) 완료.**
 
 ### P2-6. Next.js 프론트 골격 + 업로드 화면
-- [ ] `frontend/` Next.js(App Router)+TS+Tailwind 스캐폴딩, `lib/api.ts` 타입 클라이언트, 업로드 페이지
+- [x] `frontend/` Next.js(App Router)+TS+Tailwind 스캐폴딩, `lib/api.ts` 타입 클라이언트, 업로드 페이지
 - **AC**: 업로드 → 잡 생성 → 진행 상태 표시까지 동작.
-- 메모:
+- 메모: **Next 16**(Turbopack) + React 19 + Tailwind 4. pnpm 은 PATH 설치 권한(EPERM) 막혀 **corepack 경유**(`corepack pnpm -C frontend ...`). pnpm 11 네이티브 빌드 차단 → `frontend/pnpm-workspace.yaml` 의 `allowBuilds: {sharp:false, unrs-resolver:false}` 로 설치 exit 0. `lib/api.ts` 타입 클라이언트(createJob/getJob/getScenario/putScenario/renderJob/eventsUrl/downloadUrl, `ApiError`). `app/page.tsx`: 업로드 폼 + `EventSource` 로 SSE 진행 표시, 완료 시 `/jobs/{id}`(P2-7) 링크. 백엔드에 **CORS 미들웨어**(`cors_origins` 설정, 기본 localhost:3000) 추가. `lint`/`build`(타입체크 포함) 통과. API 기본 URL `NEXT_PUBLIC_API_BASE`(기본 localhost:8000). 백엔드 133건 유지.
 
 ### P2-7. 프론트 검수 화면
 - [ ] 생성 JSON 표 편집 UI → 재검증 → 재렌더링 → 다운로드

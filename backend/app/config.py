@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     # SSE 진행 상태 스트림의 DB 폴링 간격(초). 테스트에서는 0 으로 낮춘다
     sse_poll_interval: float = 0.3
 
+    # CORS 허용 오리진 (프론트엔드 개발 서버). 쉼표 구분 문자열로도 주입 가능
+    cors_origins: list[str] = ["http://localhost:3000"]
+
 
 @lru_cache
 def get_settings() -> Settings:

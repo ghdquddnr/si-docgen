@@ -1,0 +1,4 @@
+# 의존성 네이티브 빌드 스크립트 실행 여부 (pnpm 11). 개발/빌드에 네이티브 빌드는 불필요.
+allowBuilds:
+  sharp: false
+  unrs-resolver: false
