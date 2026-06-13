@@ -24,6 +24,24 @@ RETRY_FEEDBACK_TEMPLATE = """{prompt}
 위 오류를 수정하여, 처음 지시한 것과 동일한 JSON 스키마로 전체를 다시 출력하세요."""
 
 
+def _strip_code_fence(raw: str) -> str:
+    """마크다운 코드펜스(```json ... ```)로 감싼 응답에서 봉투만 제거한다.
+
+    데이터 추출이 아니라 정규화 단계다 — 본문은 그대로 json.loads + Pydantic 으로
+    검증한다. 로컬 모델은 구조화 출력을 지시해도 펜스를 붙이는 경우가 잦다.
+    """
+    text = raw.strip()
+    if not text.startswith("```"):
+        return text
+    newline = text.find("\n")
+    if newline != -1:
+        text = text[newline + 1 :]  # ``` 또는 ```json 여는 줄 제거
+    text = text.rstrip()
+    if text.endswith("```"):
+        text = text[:-3]
+    return text.strip()
+
+
 def generate_validated[T: BaseModel](
     prompt: str,
     schema_cls: type[T],
@@ -40,7 +58,7 @@ def generate_validated[T: BaseModel](
     for attempt in range(1, attempts + 1):
         raw = complete_json(current_prompt, system=system, json_schema=json_schema)
         try:
-            data = json.loads(raw)
+            data = json.loads(_strip_code_fence(raw))
         except json.JSONDecodeError as exc:
             last_error = f"JSON 파싱 실패: {exc}"
         else:

@@ -12,8 +12,8 @@
 ## 현재 상태
 
 - **현재 Phase**: Phase 1 — 단일 파이프라인 (Phase 0 완료, 2026-06-13 검수 합격)
-- **진행 중 태스크**: 없음 (다음: P1-1)
-- **차단 사항**: 없음. 단, P1-1 착수 전 결정 필요 사항은 Phase 1 머리말 참조
+- **진행 중 태스크**: 없음 (다음: P1-4)
+- **차단 사항**: 없음. (P1-3 블로커 해소 — gemma4:e4b 로 평가 3/3 통과)
 
 ---
 
@@ -101,10 +101,10 @@ LLM 호출이 처음 들어가는 Phase 이므로, "LLM은 JSON만 생성 + Pyda
 - 메모: `SourceParseError` 예외 신설. 표 추출은 docx 만 지원(pdf 표는 텍스트로 평탄화됨). 픽스처 pdf 는 Chromium 인쇄로 생성.
 
 ### P1-3. 테스트시나리오 생성 프롬프트 + 평가 스크립트
-- [~] `backend/app/llm/prompts.py` — 테스트시나리오 생성 프롬프트 템플릿. 스키마 필드의 한국어 description 을 자동 포함해 출력 형식을 지시 (구현 완료)
-- [~] `scripts/eval/eval_test_scenario.py` — 실제 LLM 을 호출해 ① 검증 통과율(재시도 포함) ② TC/REQ ID 형식 적합성 ③ 생성 건수 분포를 리포트 (구현 완료, 합격 기준 미달성)
+- [x] `backend/app/llm/prompts.py` — 테스트시나리오 생성 프롬프트 템플릿. 스키마 필드의 한국어 description 을 자동 포함해 출력 형식을 지시
+- [x] `scripts/eval/eval_test_scenario.py` — 실제 LLM 을 호출해 ① 검증 통과율(재시도 포함) ② TC/REQ ID 형식 적합성 ③ 생성 건수 분포를 리포트
 - **AC**: 평가 스크립트가 샘플 원천 문서로 end-to-end 생성 리포트를 출력한다. 프롬프트는 코드와 분리된 상수/템플릿으로 관리된다.
-- 메모: 코드 완료·커밋됨, 그러나 gemma4:12b 평가 실패 — ① JSON 모드: 필드 누락으로 검증 3회 실패 ② 구조화 출력(JSON Schema 강제) 적용 후: 600초 타임아웃(이 PC에서 12B + 큰 스키마 제약 추론이 너무 느림). 다음 세션 선택지: 더 작은 모델(gemma4:e4b pull), 다른 로컬 모델(qwen3:14b 등), 타임아웃 대폭 증가, 또는 상용 모델로 평가. 모델 결정 후 재평가 필요.
+- 메모: **2026-06-13 gemma4:e4b 로 평가 3/3 통과** (단위 5~7 + 통합 1건, 회당 83~98s, TC ID 중복 없음, 원천 외 요건 ID 참조 없음). 블로커 원인 2가지 해소: ① 12b 타임아웃 → e4b(경량)로 전환, `.env`/`.env.example` 기본 모델을 e4b 로 변경, 타임아웃 300s. ② e4b 가 구조화 출력 지시에도 응답을 ```json 펜스로 감싸 char-0 파싱 실패 → `generate.py` 에 `_strip_code_fence()` 추가(봉투만 제거, 데이터는 그대로 json.loads+Pydantic 검증 — 정규식 데이터 추출 아님). 상용 모델 전환 시 펜스 처리는 무해하게 그대로 통과.
 
 ### P1-4. RTM 스키마/렌더러 + ID 정합성 검증
 - [ ] `backend/templates/rtm.xlsx` 양식 제작 (제작 스크립트 `scripts/templates/build_rtm_template.py`) — 요건 ID/요건명/화면 ID/프로그램 ID/TC ID/단계별 반영 여부, 서식 기준 행 방식은 P0-3 과 동일
