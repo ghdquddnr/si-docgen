@@ -14,7 +14,12 @@ from app.config import get_settings
 from app.db.models import Job, JobStatus
 from app.db.session import SessionLocal
 from app.exceptions import SiDocgenError
-from app.pipelines.generate_test_scenario import generate_scenario
+from app.pipelines.generate_test_scenario import (
+    GenerateResult,
+    generate_scenario,
+    render_scenario_and_rtm,
+)
+from app.schemas.test_scenario import TestScenarioDocument
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +39,21 @@ def job_dir(job_id: str) -> Path:
 def source_path(job_id: str, original_filename: str) -> Path:
     """잡의 원천 파일 저장 경로 (원본 확장자 유지)."""
     return job_dir(job_id) / f"source{Path(original_filename).suffix.lower()}"
+
+
+def output_dir(job_id: str) -> Path:
+    """잡의 렌더링 산출물 디렉토리."""
+    return job_dir(job_id) / "output"
+
+
+# 다운로드 종류 → 산출물 파일명
+OUTPUT_FILES = {"test_scenario": "test_scenario.xlsx", "rtm": "rtm.xlsx"}
+
+
+def render_job_outputs(job_id: str, scenario_json: dict) -> GenerateResult:
+    """저장된(검수된) 시나리오 JSON 으로 엑셀 2종을 렌더링한다 (LLM 미사용)."""
+    scenario = TestScenarioDocument.model_validate(scenario_json)
+    return render_scenario_and_rtm(scenario, output_dir(job_id))
 
 
 def create_job(

@@ -164,9 +164,9 @@ LLM 호출이 처음 들어가는 Phase 이므로, "LLM은 JSON만 생성 + Pyda
 - 메모: `GET /jobs/{id}`=상태(JobOut), `GET /jobs/{id}/scenario`=시나리오 JSON(미생성 시 409), `PUT /jobs/{id}/scenario`=편집본. PUT 본문을 `TestScenarioDocument` 로 선언 → FastAPI 가 자동 검증, 스키마 위반·TC ID 중복은 **422**. RTM 정합성은 시나리오에서 파생되므로 구조적 보장(별도 교차검증 불필요). **`TestScenarioDocument` 에 TC ID 유일성 model_validator 신설**(절대 원칙 6 강화) — 단위·통합 전체에서 중복 금지. 없는 잡 404. 테스트 7건(조회/409/유효저장/중복422/형식422/404 + 스키마 경계). 총 128건.
 
 ### P2-5. 재렌더링 + 다운로드
-- [ ] `POST /jobs/{id}/render` 검증된 JSON 으로 xlsx 2종 재렌더링, `GET /jobs/{id}/download/{kind}` 파일 다운로드
+- [x] `POST /jobs/{id}/render` 검증된 JSON 으로 xlsx 2종 재렌더링, `GET /jobs/{id}/download/{kind}` 파일 다운로드
 - **AC**: 편집 → 재렌더링 → 다운로드 흐름이 e2e 테스트로 통과.
-- 메모:
+- 메모: `render_job_outputs(job_id, scenario_json)` → `output_dir = data/jobs/{id}/output`. POST /render 동기 처리(LLM 미사용, 빠름), 시나리오 미생성 시 409. `download/{kind}`(kind: test_scenario|rtm), 미렌더링 시 409, 알수없는 종류 404, `FileResponse`+xlsx media type. 테스트 5건: 렌더링→다운로드(xlsx 유효성 openpyxl 검증)/렌더링 전 409/알수없는 종류 404/**편집→재렌더링 반영 확인**/없는 잡 404. 총 133건. **→ P2 백엔드(API) 완료.**
 
 ### P2-6. Next.js 프론트 골격 + 업로드 화면
 - [ ] `frontend/` Next.js(App Router)+TS+Tailwind 스캐폴딩, `lib/api.ts` 타입 클라이언트, 업로드 페이지

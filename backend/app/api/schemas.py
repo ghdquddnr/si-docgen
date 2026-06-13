@@ -24,3 +24,12 @@ class JobOut(BaseModel):
     written_date: str
     error: str | None
     created_at: datetime
+
+
+class RenderOut(BaseModel):
+    """재렌더링 결과 요약."""
+
+    unit_count: int
+    integration_count: int
+    requirement_count: int
+    downloads: dict[str, str]  # kind -> 다운로드 경로

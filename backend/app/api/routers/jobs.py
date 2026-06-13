@@ -4,14 +4,17 @@ import logging
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
-from app.api.schemas import JobOut
+from app.api.schemas import JobOut, RenderOut
 from app.db.models import Job
 from app.db.session import get_db
 from app.schemas.test_scenario import TestScenarioDocument
 from app.services import job_service
 from app.services.job_service import UnsupportedSourceError
+
+XLSX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +81,34 @@ def update_scenario(
     db.commit()
     db.refresh(job)
     return job
+
+
+@router.post("/{job_id}/render", response_model=RenderOut)
+def render_job(job_id: str, db: Annotated[Session, Depends(get_db)]) -> RenderOut:
+    """검수된 시나리오로 엑셀 2종을 재렌더링한다 (LLM 미사용, 동기 처리)."""
+    job = _require_job(db, job_id)
+    if job.scenario_json is None:
+        raise HTTPException(status_code=409, detail="렌더링할 시나리오가 없습니다")
+    result = job_service.render_job_outputs(job_id, job.scenario_json)
+    return RenderOut(
+        unit_count=result.unit_count,
+        integration_count=result.integration_count,
+        requirement_count=result.requirement_count,
+        downloads={kind: f"/jobs/{job_id}/download/{kind}" for kind in job_service.OUTPUT_FILES},
+    )
+
+
+@router.get("/{job_id}/download/{kind}")
+def download(job_id: str, kind: str, db: Annotated[Session, Depends(get_db)]) -> FileResponse:
+    """렌더링된 산출물 파일을 다운로드한다 (kind: test_scenario | rtm)."""
+    _require_job(db, job_id)
+    filename = job_service.OUTPUT_FILES.get(kind)
+    if filename is None:
+        raise HTTPException(status_code=404, detail=f"알 수 없는 산출물 종류: {kind}")
+    path = job_service.output_dir(job_id) / filename
+    if not path.is_file():
+        raise HTTPException(status_code=409, detail="먼저 렌더링을 수행하세요")
+    return FileResponse(path, filename=filename, media_type=XLSX_MEDIA_TYPE)
 
 
 def _require_job(db: Session, job_id: str) -> Job:
