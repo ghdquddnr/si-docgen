@@ -25,6 +25,11 @@ class Settings(BaseSettings):
     # 검증 실패 시 총 시도 횟수 (절대 원칙: 최대 3회)
     llm_max_attempts: int = 3
 
+    # DB 연결 URL (SQLAlchemy 형식). 기본은 로컬 SQLite 이며,
+    # SIDOCGEN_DATABASE_URL 로 PostgreSQL/MySQL 등으로 전환한다
+    # (예: postgresql+psycopg://user:pw@host/db). 스키마는 Alembic 으로 관리.
+    database_url: str = "sqlite:///./data/si_docgen.db"
+
 
 @lru_cache
 def get_settings() -> Settings:

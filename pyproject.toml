@@ -7,7 +7,9 @@ version = "0.1.0"
 description = "한국 SI 프로젝트 표준 산출물(테스트시나리오, 요구사항정의서, 화면정의서 등) LLM 기반 자동 생성기"
 requires-python = ">=3.12"
 dependencies = [
+    "alembic>=1.18.4",
     "docxtpl>=0.20.2",
+    "fastapi>=0.136.3",
     "litellm>=1.88.1",
     "openpyxl>=3.1.5",
     "pillow>=12.2.0",
@@ -15,7 +17,10 @@ dependencies = [
     "pydantic>=2.13.4",
     "pydantic-settings>=2.14.1",
     "pypdf>=6.13.2",
+    "python-multipart>=0.0.32",
     "python-pptx>=1.0.2",
+    "sqlalchemy>=2.0.50",
+    "uvicorn[standard]>=0.49.0",
 ]
 
 [project.scripts]
@@ -31,6 +36,7 @@ packages = ["backend/app"]
 
 [dependency-groups]
 dev = [
+    "httpx>=0.28.1",
     "pytest>=8.0",
     "ruff>=0.8",
 ]
@@ -39,6 +45,8 @@ dev = [
 line-length = 100
 target-version = "py312"
 src = ["backend"]
+# Alembic 자동생성 마이그레이션은 린트 대상에서 제외 (도구가 생성·관리)
+extend-exclude = ["backend/app/db/migrations/versions"]
 
 [tool.ruff.lint]
 # E/W: pycodestyle, F: pyflakes, I: isort, UP: pyupgrade, B: bugbear

@@ -127,9 +127,66 @@ LLM 호출이 처음 들어가는 Phase 이므로, "LLM은 JSON만 생성 + Pyda
 
 ---
 
-## Phase 2~4 — 개요만 유지 (착수 전 분해 금지)
+## Phase 2 — 웹화 (FastAPI + Next.js)
 
-- **Phase 2**: FastAPI + Next.js 웹화 — 업로드 / SSE 진행 상태 / 검수 화면(JSON 표 편집 → 재렌더링) / 다운로드
+**Phase 목표**: CLI 흐름(원천 문서 → 테스트시나리오 + RTM)을 웹으로 제공한다.
+업로드 → 백그라운드 생성(진행 상태 SSE) → JSON 검수 화면(표 편집 → 재검증) → 재렌더링 → 다운로드.
+
+> **착수 결정사항 (2026-06-14 사용자 확정)**:
+> 1. 시작 순서: **백엔드 API 먼저**(P2-1~5), 이후 Next.js 프론트(P2-6~7).
+> 2. 상태 저장: **SQLite 로 시작하되 SQLAlchemy 2.0 + Alembic 으로 추상화** — DB URL 만 바꾸면
+>    PostgreSQL/MySQL 로 전환 가능하게. 인메모리 아님(잡/검수 상태 영속화).
+> 3. 신규 의존성: `fastapi`, `uvicorn[standard]`, `python-multipart`, `sqlalchemy`, `alembic`,
+>    (SSE 단계에서 `sse-starlette`), dev: `httpx`(TestClient).
+
+### P2-1. 백엔드 API 스캐폴딩 + DB 계층
+- [x] 신규 의존성 추가, `config.py` 에 `database_url`(기본 `sqlite:///./data/si_docgen.db`) 추가
+- [x] `backend/app/db/` — Declarative Base, 엔진/세션(`get_db` 의존성), `Job` 모델(상태/입력파일/표지정보/scenario_json/오류/타임스탬프)
+- [x] Alembic 셋업(`alembic.ini` + `env.py` 가 설정의 DB URL·Base.metadata 사용) + 초기 마이그레이션
+- [x] `backend/app/api/main.py` — FastAPI 앱 + 헬스체크 라우터
+- **AC**: FastAPI TestClient 로 `GET /health` 200, `Job` 모델 CRUD 단위 테스트 통과(임시 sqlite). `alembic upgrade head` 로 스키마 생성됨.
+- 메모: DB URL 은 `app.config` 단일 관리, **alembic.ini 에 URL 미기재**(env.py 가 설정에서 주입). `alembic.ini` 는 **ASCII 전용**(Windows cp949 로캘이 ini 를 로캘 인코딩으로 읽어 한글 주석 시 UnicodeDecodeError). 마이그레이션은 `render_as_batch=True`(SQLite ALTER 제약 우회) + `JobStatus` 는 `native_enum=False`(VARCHAR 저장)로 **PostgreSQL/MySQL 이식성 확보**. `JobStatus` 는 `StrEnum`(py312), DB 에는 멤버명(PENDING 등) 저장. 엔진은 `session.py` 에 모듈 전역 + `rebind_engine()`(테스트 임시 DB 주입용). 자동생성 마이그레이션(`versions/`)은 ruff `extend-exclude`. 전체 114건 통과. 서버 실행: `uv run uvicorn app.api.main:app --reload`.
+
+### P2-2. 업로드 → 생성 잡 엔드포인트
+- [ ] `POST /jobs` (multipart 업로드 + 표지 정보) → 잡 생성 → 백그라운드로 파이프라인 실행 → 잡 ID 반환
+- [ ] 생성 파이프라인을 잡 상태(대기/진행/완료/실패)와 연동, 결과 JSON·오류를 DB 에 저장
+- **AC**: LLM 모킹 e2e 로 업로드 → 잡 완료 → DB 에 scenario_json 저장 확인.
+- 메모:
+
+### P2-3. SSE 진행 상태 스트림
+- [ ] `GET /jobs/{id}/events` — 잡 진행 단계(파싱/LLM 생성/렌더링/완료)를 SSE 로 푸시
+- **AC**: 잡 진행에 따라 이벤트가 순서대로 전달되고 완료 시 종료됨을 테스트로 확인.
+- 메모:
+
+### P2-4. 결과 조회 + JSON 검수(편집)
+- [ ] `GET /jobs/{id}` 생성 JSON 반환, `PUT /jobs/{id}/scenario` 편집본을 Pydantic 재검증(+RTM 정합성)
+- **AC**: 잘못된 편집본(스키마 위반/ID 불일치)이 422 로 거부되고, 유효 편집본은 저장됨.
+- 메모:
+
+### P2-5. 재렌더링 + 다운로드
+- [ ] `POST /jobs/{id}/render` 검증된 JSON 으로 xlsx 2종 재렌더링, `GET /jobs/{id}/download/{kind}` 파일 다운로드
+- **AC**: 편집 → 재렌더링 → 다운로드 흐름이 e2e 테스트로 통과.
+- 메모:
+
+### P2-6. Next.js 프론트 골격 + 업로드 화면
+- [ ] `frontend/` Next.js(App Router)+TS+Tailwind 스캐폴딩, `lib/api.ts` 타입 클라이언트, 업로드 페이지
+- **AC**: 업로드 → 잡 생성 → 진행 상태 표시까지 동작.
+- 메모:
+
+### P2-7. 프론트 검수 화면
+- [ ] 생성 JSON 표 편집 UI → 재검증 → 재렌더링 → 다운로드
+- **AC**: 편집·재렌더링·다운로드가 브라우저에서 동작.
+- 메모:
+
+### P2-8. Phase 2 통합 검수 (사람 게이트)
+- [ ] 업로드~다운로드 전 과정을 실제로 수행해 판정.
+- **AC**: 전 흐름 합격 판정, 개선 항목 환원.
+- 메모:
+
+---
+
+## Phase 3~4 — 개요만 유지 (착수 전 분해 금지)
+
 - **Phase 3**: 다중 산출물 체이닝(요구사항 → 화면정의서 → 테스트시나리오) + ID 추적성 + 로컬/상용 모델 전환
 - **Phase 4**: React Flow 노드 캔버스 UI
 
