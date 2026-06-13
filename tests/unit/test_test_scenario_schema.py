@@ -72,3 +72,12 @@ def test_빈_테스트케이스_목록은_허용() -> None:
 def test_잘못된_작성일_거부() -> None:
     with pytest.raises(ValidationError):
         ts.TestScenarioDocument.model_validate({**VALID_DOC, "written_date": "2026년 6월 13일"})
+
+
+def test_중복_TC_ID_거부() -> None:
+    dup = {**VALID_CASE, "tc_id": "TC-001"}
+    other = {**VALID_CASE, "tc_id": "TC-001", "scenario_name": "다른 시나리오"}
+    with pytest.raises(ValidationError, match="중복"):
+        ts.TestScenarioDocument.model_validate(
+            {**VALID_DOC, "unit_test_cases": [dup], "integration_test_cases": [other]}
+        )

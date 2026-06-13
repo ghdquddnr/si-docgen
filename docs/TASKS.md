@@ -159,9 +159,9 @@ LLM 호출이 처음 들어가는 Phase 이므로, "LLM은 JSON만 생성 + Pyda
 - 메모: `sse-starlette` 의 `EventSourceResponse`. 백그라운드 워커와 메모리 공유 없이 **DB 폴링**으로 상태 전파(멀티프로세스 안전). `Job.progress`(String(32)) 컬럼 신설 + 마이그레이션, `generate_scenario(on_progress=...)` 콜백으로 parsing→generating 단계 통지, `run_job` 이 각 단계에서 progress 갱신·commit. 폴링 간격 설정 `sse_poll_interval`(테스트 0). 스냅샷 변경 시에만 emit, terminal 상태에서 스트림 종료. 테스트: 진행 순서(read_job_state 스크립트 대체)·완료 종료·없는 잡 에러 3건. 총 121건.
 
 ### P2-4. 결과 조회 + JSON 검수(편집)
-- [ ] `GET /jobs/{id}` 생성 JSON 반환, `PUT /jobs/{id}/scenario` 편집본을 Pydantic 재검증(+RTM 정합성)
+- [x] `GET /jobs/{id}/scenario` 생성 JSON 반환, `PUT /jobs/{id}/scenario` 편집본을 Pydantic 재검증(+RTM 정합성)
 - **AC**: 잘못된 편집본(스키마 위반/ID 불일치)이 422 로 거부되고, 유효 편집본은 저장됨.
-- 메모:
+- 메모: `GET /jobs/{id}`=상태(JobOut), `GET /jobs/{id}/scenario`=시나리오 JSON(미생성 시 409), `PUT /jobs/{id}/scenario`=편집본. PUT 본문을 `TestScenarioDocument` 로 선언 → FastAPI 가 자동 검증, 스키마 위반·TC ID 중복은 **422**. RTM 정합성은 시나리오에서 파생되므로 구조적 보장(별도 교차검증 불필요). **`TestScenarioDocument` 에 TC ID 유일성 model_validator 신설**(절대 원칙 6 강화) — 단위·통합 전체에서 중복 금지. 없는 잡 404. 테스트 7건(조회/409/유효저장/중복422/형식422/404 + 스키마 경계). 총 128건.
 
 ### P2-5. 재렌더링 + 다운로드
 - [ ] `POST /jobs/{id}/render` 검증된 JSON 으로 xlsx 2종 재렌더링, `GET /jobs/{id}/download/{kind}` 파일 다운로드

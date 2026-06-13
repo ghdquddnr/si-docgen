@@ -6,7 +6,7 @@
 from datetime import date
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class TestCase(BaseModel):
@@ -55,3 +55,12 @@ class TestScenarioDocument(BaseModel):
     integration_test_cases: list[TestCase] = Field(
         default_factory=list, description="'통합테스트' 시트에 들어갈 테스트케이스 목록"
     )
+
+    @model_validator(mode="after")
+    def _check_unique_tc_id(self) -> "TestScenarioDocument":
+        """TC ID 는 단위·통합 전체에서 유일해야 한다 (요건 추적성·RTM 매핑 무결성)."""
+        ids = [c.tc_id for c in self.unit_test_cases + self.integration_test_cases]
+        duplicates = sorted({tc_id for tc_id in ids if ids.count(tc_id) > 1})
+        if duplicates:
+            raise ValueError(f"TC ID 가 중복되었습니다: {duplicates}")
+        return self
