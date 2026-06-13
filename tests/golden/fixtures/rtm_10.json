@@ -1,0 +1,88 @@
+{
+  "project_name": "차세대 통합 업무시스템 구축",
+  "system_name": "통합 업무포털",
+  "author": "홍길동",
+  "written_date": "2026-06-13",
+  "rows": [
+    {
+      "req_id": "REQ-001",
+      "req_name": "사용자 로그인 및 계정 잠금",
+      "screen_ids": ["SCR-001"],
+      "program_ids": ["AUTH-LOGIN"],
+      "tc_ids": ["TC-001", "TC-002"],
+      "stage_reflection": {"analysis": true, "design": true, "implementation": true, "test": true}
+    },
+    {
+      "req_id": "REQ-002",
+      "req_name": "비밀번호 재설정",
+      "screen_ids": ["SCR-002", "SCR-003"],
+      "program_ids": ["AUTH-PWRESET"],
+      "tc_ids": ["TC-003"],
+      "stage_reflection": {"analysis": true, "design": true, "implementation": true, "test": false}
+    },
+    {
+      "req_id": "REQ-010",
+      "req_name": "공통 코드 관리",
+      "screen_ids": ["SCR-010"],
+      "program_ids": ["COMM-CODE"],
+      "tc_ids": ["TC-010"],
+      "stage_reflection": {"analysis": true, "design": true, "implementation": true, "test": true}
+    },
+    {
+      "req_id": "REQ-011",
+      "req_name": "권한 그룹 관리",
+      "screen_ids": ["SCR-011", "SCR-012"],
+      "program_ids": ["AUTH-ROLE", "AUTH-ROLEMAP"],
+      "tc_ids": ["TC-011", "TC-012"],
+      "stage_reflection": {"analysis": true, "design": true, "implementation": false, "test": false}
+    },
+    {
+      "req_id": "REQ-020",
+      "req_name": "배치 스케줄 등록",
+      "screen_ids": ["SCR-020"],
+      "program_ids": ["BATCH-SCHED"],
+      "tc_ids": ["TC-020"],
+      "stage_reflection": {"analysis": true, "design": true, "implementation": true, "test": true}
+    },
+    {
+      "req_id": "REQ-021",
+      "req_name": "배치 실행 이력 조회 (백엔드 전용, 화면 없음)",
+      "screen_ids": [],
+      "program_ids": ["BATCH-HISTORY"],
+      "tc_ids": ["TC-021"],
+      "stage_reflection": {"analysis": true, "design": true, "implementation": true, "test": false}
+    },
+    {
+      "req_id": "REQ-030",
+      "req_name": "결재선 지정 및 상신",
+      "screen_ids": ["SCR-030", "SCR-031"],
+      "program_ids": ["APPR-LINE", "APPR-SUBMIT"],
+      "tc_ids": ["TC-030", "TC-031", "TC-032"],
+      "stage_reflection": {"analysis": true, "design": true, "implementation": true, "test": true}
+    },
+    {
+      "req_id": "REQ-031",
+      "req_name": "결재 반려 및 재상신",
+      "screen_ids": ["SCR-032"],
+      "program_ids": ["APPR-REJECT"],
+      "tc_ids": ["TC-033"],
+      "stage_reflection": {"analysis": true, "design": true, "implementation": false, "test": false}
+    },
+    {
+      "req_id": "REQ-040",
+      "req_name": "대시보드 통계 위젯 (분석 단계만 반영)",
+      "screen_ids": ["SCR-040"],
+      "program_ids": [],
+      "tc_ids": [],
+      "stage_reflection": {"analysis": true, "design": false, "implementation": false, "test": false}
+    },
+    {
+      "req_id": "REQ-041",
+      "req_name": "알림 발송 설정",
+      "screen_ids": ["SCR-041"],
+      "program_ids": ["NOTI-CONFIG"],
+      "tc_ids": ["TC-041"],
+      "stage_reflection": {"analysis": true, "design": true, "implementation": true, "test": true}
+    }
+  ]
+}

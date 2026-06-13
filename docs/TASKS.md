@@ -12,8 +12,8 @@
 ## 현재 상태
 
 - **현재 Phase**: Phase 1 — 단일 파이프라인 (Phase 0 완료, 2026-06-13 검수 합격)
-- **진행 중 태스크**: 없음 (다음: P1-4)
-- **차단 사항**: 없음. (P1-3 블로커 해소 — gemma4:e4b 로 평가 3/3 통과)
+- **진행 중 태스크**: 없음 (다음: P1-5)
+- **차단 사항**: 없음.
 
 ---
 
@@ -107,11 +107,11 @@ LLM 호출이 처음 들어가는 Phase 이므로, "LLM은 JSON만 생성 + Pyda
 - 메모: **2026-06-13 gemma4:e4b 로 평가 3/3 통과** (단위 5~7 + 통합 1건, 회당 83~98s, TC ID 중복 없음, 원천 외 요건 ID 참조 없음). 블로커 원인 2가지 해소: ① 12b 타임아웃 → e4b(경량)로 전환, `.env`/`.env.example` 기본 모델을 e4b 로 변경, 타임아웃 300s. ② e4b 가 구조화 출력 지시에도 응답을 ```json 펜스로 감싸 char-0 파싱 실패 → `generate.py` 에 `_strip_code_fence()` 추가(봉투만 제거, 데이터는 그대로 json.loads+Pydantic 검증 — 정규식 데이터 추출 아님). 상용 모델 전환 시 펜스 처리는 무해하게 그대로 통과.
 
 ### P1-4. RTM 스키마/렌더러 + ID 정합성 검증
-- [ ] `backend/templates/rtm.xlsx` 양식 제작 (제작 스크립트 `scripts/templates/build_rtm_template.py`) — 요건 ID/요건명/화면 ID/프로그램 ID/TC ID/단계별 반영 여부, 서식 기준 행 방식은 P0-3 과 동일
-- [ ] `backend/app/schemas/rtm.py` + `backend/app/renderers/rtm_renderer.py`
-- [ ] 테스트시나리오와 동시 생성 시 정합성 검증: RTM 의 TC ID ⊆ 테스트시나리오 TC ID, 요건 ID 상호 일치. 불일치 시 `ValidationFailedError`
+- [x] `backend/templates/rtm.xlsx` 양식 제작 (제작 스크립트 `scripts/templates/build_rtm_template.py`) — 요건 ID/요건명/화면 ID/프로그램 ID/TC ID/단계별 반영 여부, 서식 기준 행 방식은 P0-3 과 동일
+- [x] `backend/app/schemas/rtm.py` + `backend/app/renderers/rtm_renderer.py`
+- [x] 테스트시나리오와 동시 생성 시 정합성 검증: RTM 의 TC ID ⊆ 테스트시나리오 TC ID, 요건 ID 상호 일치. 불일치 시 `ValidationFailedError`
 - **AC**: 골든 파일 테스트 + 존재하지 않는 TC/REQ ID 참조 픽스처가 검증에서 거부됨을 테스트로 확인.
-- 메모:
+- 메모: 템플릿은 9열(앞 5열 + '단계별 반영 여부' 그룹 헤더 아래 분석/설계/구현/시험 4열). 헤더는 2행(8~9행) 구성이라 **STYLE_ROW=10**(test_scenario 는 9). 표지/결재란 셀 배치는 test_scenario 와 동일(B5/G5/B6/G6). 정합성 검증 `validate_rtm_consistency(rtm, scenario)` 는 schemas/rtm.py 에 위치 — ① RTM TC ID ⊆ 시나리오 TC(유령 TC 참조 거부) ② 시나리오 요건 ID ⊆ RTM 요건(추적 완전성). RTM 에 TC 미작성 요건이 있어도 통과(단방향). 스키마는 요건 ID 중복 거부 + 리스트 항목 ID 형식(SCR/TC) 제약. 픽스처 `tests/golden/fixtures/rtm_10.json`. 테스트 총 105건 통과(렌더러 골든 8 + 스키마 경계 11 + 정합성 4 신규). 다단 헤더 셀은 `get_column_letter` 사용(병합셀 .column_letter 미지원).
 
 ### P1-5. CLI 엔트리포인트
 - [ ] `backend/app/cli.py` + pyproject `[project.scripts]` — `si-docgen generate --input 요구사항.docx --output ./out [--model ...]`
