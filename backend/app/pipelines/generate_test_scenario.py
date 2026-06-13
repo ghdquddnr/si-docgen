@@ -36,17 +36,17 @@ class GenerateResult:
     requirement_count: int
 
 
-def generate_test_scenario_and_rtm(
+def generate_scenario(
     input_path: Path,
-    output_dir: Path,
     *,
     project_name: str,
     system_name: str,
     author: str,
     written_date: str,
-) -> GenerateResult:
-    """원천 문서 1건에서 테스트시나리오·RTM 엑셀을 생성한다.
+) -> TestScenarioDocument:
+    """원천 문서 1건에서 검증된 테스트시나리오(JSON 모델)를 생성한다 (렌더링 제외).
 
+    웹 흐름에서는 이 결과를 저장해 사람이 검수한 뒤 render_scenario_and_rtm 으로 렌더링한다.
     표지 정보(project_name 등)는 원천 문서에서 안정적으로 추출하기 어려워 인자로 받는다.
     """
     logger.info("원천 문서 파싱: %s", input_path)
@@ -67,7 +67,14 @@ def generate_test_scenario_and_rtm(
         len(scenario.unit_test_cases),
         len(scenario.integration_test_cases),
     )
+    return scenario
 
+
+def render_scenario_and_rtm(scenario: TestScenarioDocument, output_dir: Path) -> GenerateResult:
+    """검증된 테스트시나리오로 RTM 을 파생하고 엑셀 2종을 렌더링한다 (LLM 미사용).
+
+    검수 후 편집된 시나리오에도 동일하게 적용된다.
+    """
     rtm = build_rtm_from_scenario(scenario)
     validate_rtm_consistency(rtm, scenario)  # 파생 결과의 ID 정합성 재확인 (방어적)
     logger.info("RTM 파생 완료: 요건 %d건", len(rtm.rows))
@@ -86,3 +93,23 @@ def generate_test_scenario_and_rtm(
         integration_count=len(scenario.integration_test_cases),
         requirement_count=len(rtm.rows),
     )
+
+
+def generate_test_scenario_and_rtm(
+    input_path: Path,
+    output_dir: Path,
+    *,
+    project_name: str,
+    system_name: str,
+    author: str,
+    written_date: str,
+) -> GenerateResult:
+    """원천 문서 1건에서 테스트시나리오·RTM 엑셀을 생성한다 (CLI 용 일괄 흐름)."""
+    scenario = generate_scenario(
+        input_path,
+        project_name=project_name,
+        system_name=system_name,
+        author=author,
+        written_date=written_date,
+    )
+    return render_scenario_and_rtm(scenario, output_dir)

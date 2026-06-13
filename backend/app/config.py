@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     # (예: postgresql+psycopg://user:pw@host/db). 스키마는 Alembic 으로 관리.
     database_url: str = "sqlite:///./data/si_docgen.db"
 
+    # 잡별 업로드 원천 파일·산출물 저장 루트 디렉토리
+    storage_dir: str = "./data/jobs"
+
 
 @lru_cache
 def get_settings() -> Settings:

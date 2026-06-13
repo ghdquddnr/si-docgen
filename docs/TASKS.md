@@ -148,10 +148,10 @@ LLM 호출이 처음 들어가는 Phase 이므로, "LLM은 JSON만 생성 + Pyda
 - 메모: DB URL 은 `app.config` 단일 관리, **alembic.ini 에 URL 미기재**(env.py 가 설정에서 주입). `alembic.ini` 는 **ASCII 전용**(Windows cp949 로캘이 ini 를 로캘 인코딩으로 읽어 한글 주석 시 UnicodeDecodeError). 마이그레이션은 `render_as_batch=True`(SQLite ALTER 제약 우회) + `JobStatus` 는 `native_enum=False`(VARCHAR 저장)로 **PostgreSQL/MySQL 이식성 확보**. `JobStatus` 는 `StrEnum`(py312), DB 에는 멤버명(PENDING 등) 저장. 엔진은 `session.py` 에 모듈 전역 + `rebind_engine()`(테스트 임시 DB 주입용). 자동생성 마이그레이션(`versions/`)은 ruff `extend-exclude`. 전체 114건 통과. 서버 실행: `uv run uvicorn app.api.main:app --reload`.
 
 ### P2-2. 업로드 → 생성 잡 엔드포인트
-- [ ] `POST /jobs` (multipart 업로드 + 표지 정보) → 잡 생성 → 백그라운드로 파이프라인 실행 → 잡 ID 반환
-- [ ] 생성 파이프라인을 잡 상태(대기/진행/완료/실패)와 연동, 결과 JSON·오류를 DB 에 저장
+- [x] `POST /jobs` (multipart 업로드 + 표지 정보) → 잡 생성 → 백그라운드로 파이프라인 실행 → 잡 ID 반환
+- [x] 생성 파이프라인을 잡 상태(대기/진행/완료/실패)와 연동, 결과 JSON·오류를 DB 에 저장
 - **AC**: LLM 모킹 e2e 로 업로드 → 잡 완료 → DB 에 scenario_json 저장 확인.
-- 메모:
+- 메모: 파이프라인을 **`generate_scenario`(JSON 까지)** 와 **`render_scenario_and_rtm`(렌더링)** 으로 분리 — 웹은 생성 후 JSON 만 저장하고 렌더링은 검수 후(P2-5). 서비스 `app/services/job_service.py`: `create_job`(파일 저장 `data/jobs/{id}/source<ext>` + Job 행) / `run_job`(자체 `SessionLocal` 세션으로 백그라운드 실행, 모든 예외를 잡 상태 failed+error 로 기록). `storage_dir` 설정 추가. 빈 작성일은 오늘로 보정(미보정 시 LLM 이 written_date="" 출력→검증 실패). 미지원 확장자는 `UnsupportedSourceError`→400, 미존재 잡 404. FastAPI 파라미터는 `Annotated[...,File()/Form()/Depends()]` 스타일(ruff B008 회피). TestClient 는 BackgroundTasks 를 응답 후 동기 실행 → POST 직후 완료 검증 가능. 4건 추가(총 118건).
 
 ### P2-3. SSE 진행 상태 스트림
 - [ ] `GET /jobs/{id}/events` — 잡 진행 단계(파싱/LLM 생성/렌더링/완료)를 SSE 로 푸시
