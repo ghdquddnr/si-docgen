@@ -98,3 +98,42 @@ def validate_rtm_consistency(rtm: RTMDocument, scenario: TestScenarioDocument) -
         errors.append(f"테스트시나리오의 요건 ID 가 RTM 에 추적되지 않음: {sorted(untraced_req)}")
     if errors:
         raise ValidationFailedError(" / ".join(errors))
+
+
+def build_rtm_from_scenario(scenario: TestScenarioDocument) -> RTMDocument:
+    """테스트시나리오로부터 RTM 을 결정론적으로 파생한다 (LLM 추가 호출 없음).
+
+    요건 ID 별로 테스트케이스를 묶어 추적 행을 만든다. 구성상 RTM 의 요건/TC ID 가
+    시나리오와 항상 일치하므로 validate_rtm_consistency 를 자동으로 만족한다.
+
+    한계(Phase 1):
+    - 요건명은 해당 요건을 처음 다룬 테스트케이스의 '대분류 - 중분류' 로 대체한다
+      (원천 문서의 정식 요건명은 스키마에 없어 가져올 수 없음 — P1-6 개선 후보).
+    - 화면/프로그램 ID 는 Phase 1 범위 밖이라 비운다.
+    - 단계별 반영은 분석(원천 요건 분석됨)·시험(TC 작성됨)만 True, 설계/구현은 False.
+    """
+    cases = scenario.unit_test_cases + scenario.integration_test_cases
+    tc_ids_by_req: dict[str, list[str]] = {}
+    req_name_by_req: dict[str, str] = {}
+    for case in cases:
+        tc_ids_by_req.setdefault(case.req_id, []).append(case.tc_id)
+        req_name_by_req.setdefault(case.req_id, f"{case.category_major} - {case.category_minor}")
+
+    rows = [
+        RTMRow(
+            req_id=req_id,
+            req_name=req_name_by_req[req_id],
+            tc_ids=tc_ids,
+            stage_reflection=StageReflection(
+                analysis=True, design=False, implementation=False, test=True
+            ),
+        )
+        for req_id, tc_ids in tc_ids_by_req.items()
+    ]
+    return RTMDocument(
+        project_name=scenario.project_name,
+        system_name=scenario.system_name,
+        author=scenario.author,
+        written_date=scenario.written_date,
+        rows=rows,
+    )

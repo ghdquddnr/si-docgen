@@ -12,7 +12,7 @@
 ## 현재 상태
 
 - **현재 Phase**: Phase 1 — 단일 파이프라인 (Phase 0 완료, 2026-06-13 검수 합격)
-- **진행 중 태스크**: 없음 (다음: P1-5)
+- **진행 중 태스크**: 없음 (다음: P1-6 — Phase 1 품질 검수 사람 게이트)
 - **차단 사항**: 없음.
 
 ---
@@ -114,11 +114,11 @@ LLM 호출이 처음 들어가는 Phase 이므로, "LLM은 JSON만 생성 + Pyda
 - 메모: 템플릿은 9열(앞 5열 + '단계별 반영 여부' 그룹 헤더 아래 분석/설계/구현/시험 4열). 헤더는 2행(8~9행) 구성이라 **STYLE_ROW=10**(test_scenario 는 9). 표지/결재란 셀 배치는 test_scenario 와 동일(B5/G5/B6/G6). 정합성 검증 `validate_rtm_consistency(rtm, scenario)` 는 schemas/rtm.py 에 위치 — ① RTM TC ID ⊆ 시나리오 TC(유령 TC 참조 거부) ② 시나리오 요건 ID ⊆ RTM 요건(추적 완전성). RTM 에 TC 미작성 요건이 있어도 통과(단방향). 스키마는 요건 ID 중복 거부 + 리스트 항목 ID 형식(SCR/TC) 제약. 픽스처 `tests/golden/fixtures/rtm_10.json`. 테스트 총 105건 통과(렌더러 골든 8 + 스키마 경계 11 + 정합성 4 신규). 다단 헤더 셀은 `get_column_letter` 사용(병합셀 .column_letter 미지원).
 
 ### P1-5. CLI 엔트리포인트
-- [ ] `backend/app/cli.py` + pyproject `[project.scripts]` — `si-docgen generate --input 요구사항.docx --output ./out [--model ...]`
-- [ ] 파이프라인 오케스트레이션 `backend/app/pipelines/generate_test_scenario.py`: 원천 파서 → LLM 생성(P1-1 루프) → 테스트시나리오 + RTM 렌더링 → 출력 경로 반환
-- [ ] 진행 상황과 실패 사유를 사람이 읽을 수 있게 stdout/로그로 출력
+- [x] `backend/app/cli.py` + pyproject `[project.scripts]` — `si-docgen generate --input 요구사항.docx --output ./out [--model ...]`
+- [x] 파이프라인 오케스트레이션 `backend/app/pipelines/generate_test_scenario.py`: 원천 파서 → LLM 생성(P1-1 루프) → 테스트시나리오 + RTM 렌더링 → 출력 경로 반환
+- [x] 진행 상황과 실패 사유를 사람이 읽을 수 있게 stdout/로그로 출력
 - **AC**: LLM 을 모킹한 e2e 테스트로 입력 docx → xlsx 2종 출력 흐름이 통과. 실제 모델 호출 확인은 P1-3 평가 스크립트로 수행.
-- 메모:
+- 메모: **RTM 은 별도 LLM 호출 없이 시나리오에서 결정론적 파생**(`build_rtm_from_scenario`, schemas/rtm.py) — 사용자 결정(1번 방식). 구성상 ID 정합성 자동 보장, 파이프라인에서 `validate_rtm_consistency` 로 방어적 재확인. **패키징**: `[build-system]=hatchling` + `[project.scripts] si-docgen=app.cli:main` 신규 추가(사용자 승인), `[tool.hatch.build.targets.wheel] packages=["backend/app"]`. `uv sync` 로 콘솔 스크립트 설치됨 → `uv run si-docgen generate ...`. e2e 테스트(LLM 모킹) `tests/unit/test_generate_pipeline.py` 5건 — 파이프라인 직접 호출 + CLI main() 종료코드(성공 0 / 미지원입력 1) 검증. 실모델 스모크(gemma4:e4b, sample md): 단위 7+통합 2, RTM 요건 3건 정상 생성 확인. **한계(P1-6 검토)**: 요건명을 시나리오 '대분류-중분류'로 대체(원천 정식 요건명 미사용), 화면/프로그램 ID 비움, 단계 반영은 분석·시험만 True. 전체 110건 통과.
 
 ### P1-6. Phase 1 품질 검수 (사람 게이트)
 - [ ] 실제 원천 문서 1건으로 CLI 실행 → 생성된 테스트시나리오/RTM 의 내용 품질·ID 정합성 판정
