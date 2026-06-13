@@ -30,6 +30,32 @@ export interface RenderResult {
   downloads: Record<string, string>;
 }
 
+export type TestResult = "Pass" | "Fail" | null;
+
+export interface TestCase {
+  tc_id: string;
+  req_id: string;
+  category_major: string;
+  category_minor: string;
+  scenario_name: string;
+  precondition: string;
+  test_steps: string[];
+  expected_result: string;
+  result: TestResult;
+  note: string;
+}
+
+export interface Scenario {
+  project_name: string;
+  system_name: string;
+  author: string;
+  written_date: string;
+  unit_test_cases: TestCase[];
+  integration_test_cases: TestCase[];
+}
+
+export type CaseListKey = "unit_test_cases" | "integration_test_cases";
+
 // SSE 진행 이벤트 페이로드
 export interface ProgressEvent {
   status: JobStatus;
@@ -76,14 +102,11 @@ export async function getJob(id: string): Promise<Job> {
   return parse<Job>(await fetch(`${API_BASE}/jobs/${id}`));
 }
 
-export async function getScenario(id: string): Promise<Record<string, unknown>> {
-  return parse<Record<string, unknown>>(await fetch(`${API_BASE}/jobs/${id}/scenario`));
+export async function getScenario(id: string): Promise<Scenario> {
+  return parse<Scenario>(await fetch(`${API_BASE}/jobs/${id}/scenario`));
 }
 
-export async function putScenario(
-  id: string,
-  scenario: Record<string, unknown>,
-): Promise<Job> {
+export async function putScenario(id: string, scenario: Scenario): Promise<Job> {
   return parse<Job>(
     await fetch(`${API_BASE}/jobs/${id}/scenario`, {
       method: "PUT",

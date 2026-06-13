@@ -174,9 +174,9 @@ LLM 호출이 처음 들어가는 Phase 이므로, "LLM은 JSON만 생성 + Pyda
 - 메모: **Next 16**(Turbopack) + React 19 + Tailwind 4. pnpm 은 PATH 설치 권한(EPERM) 막혀 **corepack 경유**(`corepack pnpm -C frontend ...`). pnpm 11 네이티브 빌드 차단 → `frontend/pnpm-workspace.yaml` 의 `allowBuilds: {sharp:false, unrs-resolver:false}` 로 설치 exit 0. `lib/api.ts` 타입 클라이언트(createJob/getJob/getScenario/putScenario/renderJob/eventsUrl/downloadUrl, `ApiError`). `app/page.tsx`: 업로드 폼 + `EventSource` 로 SSE 진행 표시, 완료 시 `/jobs/{id}`(P2-7) 링크. 백엔드에 **CORS 미들웨어**(`cors_origins` 설정, 기본 localhost:3000) 추가. `lint`/`build`(타입체크 포함) 통과. API 기본 URL `NEXT_PUBLIC_API_BASE`(기본 localhost:8000). 백엔드 133건 유지.
 
 ### P2-7. 프론트 검수 화면
-- [ ] 생성 JSON 표 편집 UI → 재검증 → 재렌더링 → 다운로드
+- [x] 생성 JSON 표 편집 UI → 재검증 → 재렌더링 → 다운로드
 - **AC**: 편집·재렌더링·다운로드가 브라우저에서 동작.
-- 메모:
+- 메모: `app/jobs/[id]/page.tsx`(클라이언트). **Next 16 변경점**: 동적 route `params` 가 Promise → `use(params)` 로 언래핑. `getScenario` 로 로드, 단위/통합 표 편집(텍스트 필드 인라인 입력 + 테스트 절차 textarea 줄바꿈↔배열). `저장(재검증)`=PUT(422 시 detail 노출), `저장 후 렌더링`=PUT→POST /render→다운로드 링크 노출(`downloadUrl`). `api.ts` 에 `Scenario`/`TestCase`/`CaseListKey` 타입 추가, get/put 시그니처를 Record→Scenario 로 강화. lint/build 통과. **행 추가/삭제는 MVP 제외**(백로그). → 브라우저 실동작 판정은 P2-8.
 
 ### P2-8. Phase 2 통합 검수 (사람 게이트)
 - [ ] 업로드~다운로드 전 과정을 실제로 수행해 판정.
