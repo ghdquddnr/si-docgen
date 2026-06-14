@@ -11,8 +11,8 @@
 
 ## 현재 상태
 
-- **현재 Phase**: 로드맵(Phase 0~4) 완료. **백로그 — B1~B5 완료, B6(사용자 매뉴얼) 렌더러 PoC 완료**.
-- **진행 중 태스크**: 없음 (B6-1 렌더러 PoC 완료. 다음: 양식 사람 검수 → 합격 시 LLM 생성, 이후 캡처(Playwright)).
+- **현재 Phase**: 로드맵(Phase 0~4) 완료. **백로그 — B1~B6 완료(사용자 매뉴얼 CLI: 생성+수동 이미지 폴더 삽입)**.
+- **진행 중 태스크**: 없음 (B6 완료. 다음: 라이브 사람 검수 또는 잔여 백로그(양식 온보딩·HWP)).
 - **차단 사항**: 없음.
 
 ---
@@ -390,8 +390,10 @@ RTM 이 REQ→SCR→TC 추적성을 연결·검증한다. 빠진 고리였던 **
 - [x] `prompts.py` 사용자 매뉴얼 프롬프트(기능별 섹션·단계 행동 지시·screen_ref, 이미지 미출력) + `pipelines/generate_user_manual.py` + `config.user_manual_model` + `scripts/eval/eval_user_manual.py` + CLI `user-manual` 서브커맨드.
 - **AC**: 모킹 단위·CLI e2e + e4b eval. 메모: 캡처 전이라 화면 자리는 플레이스홀더로 렌더(`generate_and_render_user_manual(images=None)`). **e4b eval 1/1 통과**(섹션 3·단계 5·screen_ref 3/5, 43s). 단위 4건(총 263건).
 
-### B6-3. 화면 캡처 (방식 결정 대기 — 2026-06-14)
-- [ ] **사용자 결정 필요**: (1) 수동 이미지 폴더(`--images-dir`, `{screen_ref}.png`, 새 의존성 없음) (2) 자동 캡처-우리 생성 화면(HTML→PNG, Playwright) (3) 자동 캡처-고객 실제 앱 URL(Playwright, 앱별 네비게이션). 렌더러는 이미 `images` 맵을 받으므로, 캡처 파이프라인(렌더러 밖)이 맵을 채워 전달.
+### B6-3. 화면 캡처 — 수동 이미지 폴더
+- [x] **사용자 결정(2026-06-14): 수동 이미지 폴더** (자동 캡처는 앱별 범위 과다, 수동이 실제 화면 그대로 + 새 의존성 0). `collect_images(images_dir, screen_refs)`(`{screen_ref}.png|.jpg|…` 매칭) + `generate_and_render_user_manual(images_dir=)` + CLI `user-manual --images-dir DIR`.
+- **AC**: 폴더의 `{screen_ref}.png` 가 해당 단계에 삽입되고, 없는 참조는 플레이스홀더 유지. → 통과(collect 매칭·삽입·CLI 3건, 총 266건). 샘플 `out/user_manual_captured.docx`(이미지 2개 삽입).
+- 메모: **Playwright 재도입 안 함**(수동 방식이라 불필요). 자동 캡처(우리 화면 HTML→PNG / 고객 앱)는 필요 시 후속 옵션. 매뉴얼 웹 노출(B6-4)은 보류 — 웹에서는 이미지 업로드 UX 가 필요해 별도 설계. **→ B6(사용자 매뉴얼 CLI) 완료.**
 
 ## 백로그 (Phase 미배정)
 
@@ -399,7 +401,7 @@ RTM 이 REQ→SCR→TC 추적성을 연결·검증한다. 빠진 고리였던 **
 - [x] ~~웹 검수 화면에 화면정의서/요구사항정의서 편집 UI~~ → 위 'B2' 섹션에서 구현
 - [x] ~~검수 화면 행/항목 추가·삭제~~ → B2-3 에서 구현
 - [x] 요구사항정의서(docx) 생성 — 위 'B1' 섹션(B1-1·B1-2·B1-3) 완료, 사람 게이트(B1-3c)만 대기
-- [~] 사용자 매뉴얼(docx) 생성 — 위 'B6' 섹션(렌더러 PoC 완료, LLM·캡처 후속)
+- [x] 사용자 매뉴얼(docx) 생성 — 위 'B6' 섹션(렌더러·LLM·CLI+수동 이미지 폴더 완료)
 - [ ] 양식 온보딩 반자동화: 고객사 양식 분석 → 플레이스홀더 위치 제안 도구
 - [ ] HWP(hwpx) 출력 지원 검토
 - [x] WBS 산출물 — 위 'B3' 섹션(렌더러 PoC·LLM·CLI·웹 완료, 라이브 사람 게이트만 후속)

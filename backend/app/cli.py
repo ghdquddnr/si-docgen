@@ -95,6 +95,12 @@ def _build_parser() -> argparse.ArgumentParser:
     man.add_argument("--system-name", default="시스템", help="표지 시스템명")
     man.add_argument("--author", default="작성자", help="표지 작성자")
     man.add_argument("--date", default=date.today().isoformat(), help="표지 작성일 (기본: 오늘)")
+    man.add_argument(
+        "--images-dir",
+        type=Path,
+        default=None,
+        help="화면 캡처 폴더. {screen_ref}.png 파일을 각 단계에 삽입 (예: SCR-001.png)",
+    )
     man.add_argument("--verbose", action="store_true", help="DEBUG 로그 출력")
     return parser
 
@@ -228,6 +234,7 @@ def _run_user_manual(args: argparse.Namespace) -> int:
             system_name=args.system_name,
             author=args.author,
             written_date=args.date,
+            images_dir=args.images_dir,
         )
     except SiDocgenError as exc:
         logger.error("생성 실패: %s", exc)
@@ -236,7 +243,10 @@ def _run_user_manual(args: argparse.Namespace) -> int:
     print("\n생성 완료:")
     print(f"  사용자 매뉴얼: {result.user_manual_path}")
     print(f"  통계: 섹션 {result.section_count}개 / 단계 {result.step_count}개")
-    print("  ※ 화면 캡처는 플레이스홀더입니다 (실제 캡처는 후속 기능).")
+    if result.image_count:
+        print(f"  삽입된 화면 캡처: {result.image_count}개 (나머지 화면 자리는 플레이스홀더)")
+    else:
+        print("  ※ 화면 캡처 미삽입 (--images-dir 로 {screen_ref}.png 제공 시 삽입).")
     return 0
 
 
