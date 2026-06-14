@@ -170,6 +170,60 @@ def build_requirement_spec_prompt(
     )
 
 
+WBS_SYSTEM = (
+    "당신은 한국 SI 프로젝트의 PM(프로젝트 관리) 전문가다. "
+    "프로젝트 범위 문서를 분석해 작업분해구조(WBS)를 작성한다. "
+    "반드시 지시된 JSON 스키마에 맞는 JSON 객체 하나만 출력한다."
+)
+
+WBS_PROMPT_TEMPLATE = """다음 원천 문서를 분석하여 작업분해구조(WBS)를 작성하라.
+
+[원천 문서: {filename}]
+{source_text}
+
+[작성 규칙]
+1. 출력은 아래 JSON 스키마를 만족하는 JSON 객체 하나만 출력한다. 설명 문장·마크다운 금지.
+2. 2~3단계 트리로 구성한다: 최상위는 공정 단계(예: 분석/설계/개발/시험/이행),
+   그 아래 children 으로 세부 작업을 둔다.
+3. 각 태스크의 id 는 영문 소문자-하이픈 슬러그로 문서 전체에서 유일하게 부여한다
+   (예: req-analysis, screen-design). 계층 번호(1.1.2)는 출력하지 않는다 — 렌더러가 계산한다.
+4. 자식이 없는 '작업' 태스크에만 duration_days(1 이상)·effort_md(0 초과)·role 을 채운다.
+   요약(상위) 태스크의 기간·공수는 비워도 된다(렌더러가 자식에서 계산).
+5. predecessors 에는 선행 '작업' 태스크의 id 만 넣는다(요약 태스크 id·순환 금지).
+   시작일/종료일은 출력하지 않는다 — 렌더러가 선행 관계로 계산한다.
+6. deliverable 에는 그 작업의 산출물명을 적는다(예: 요구사항정의서). 없으면 "".
+7. 모든 텍스트는 한국어로 작성한다.
+8. 표지 정보: project_name="{project_name}", system_name="{system_name}",
+   author="{author}", written_date="{written_date}", start_date="{start_date}".
+
+[출력 JSON 스키마]
+{schema_json}
+"""
+
+
+def build_wbs_prompt(
+    source: SourceDocument,
+    schema_cls: type[BaseModel],
+    *,
+    project_name: str,
+    system_name: str,
+    author: str,
+    written_date: str,
+    start_date: str,
+) -> str:
+    """WBS 생성 프롬프트를 조립한다. 계층번호·일정은 렌더러가 계산하므로 LLM 은 구조만 만든다."""
+    return WBS_PROMPT_TEMPLATE.format(
+        filename=source.filename,
+        source_text=source_to_prompt_text(source),
+        schema_json=schema_to_prompt_json(schema_cls),
+        project_name=project_name,
+        system_name=system_name,
+        author=author,
+        written_date=written_date,
+        start_date=start_date,
+    )
+
+
 def build_screen_spec_prompt(
     source: SourceDocument,
     schema_cls: type[BaseModel],
