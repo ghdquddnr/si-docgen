@@ -45,6 +45,7 @@ def generate_scenario(
     system_name: str,
     author: str,
     written_date: str,
+    requirements: list[tuple[str, str]] | None = None,
     model: str | None = None,
     on_progress: Callable[[str], None] | None = None,
 ) -> TestScenarioDocument:
@@ -52,6 +53,7 @@ def generate_scenario(
 
     웹 흐름에서는 이 결과를 저장해 사람이 검수한 뒤 render_scenario_and_rtm 으로 렌더링한다.
     표지 정보(project_name 등)는 원천 문서에서 안정적으로 추출하기 어려워 인자로 받는다.
+    requirements(확정 요건 목록: (REQ ID, 요건명))가 주어지면 TC 가 그 요건만 참조하도록 유도한다.
     model 이 주어지면 그 모델을, 없으면 설정의 scenario_model(또는 기본 모델)을 쓴다.
     on_progress 가 주어지면 단계 전환 시 단계명(parsing/generating)을 통지한다 (SSE 진행 표시용).
     """
@@ -73,6 +75,7 @@ def generate_scenario(
         system_name=system_name,
         author=author,
         written_date=written_date,
+        requirements=requirements,
     )
     scenario = generate_validated(
         prompt,

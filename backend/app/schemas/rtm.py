@@ -10,6 +10,7 @@ from typing import Annotated
 from pydantic import BaseModel, Field, StringConstraints, model_validator
 
 from app.exceptions import ValidationFailedError
+from app.schemas.requirement_spec import RequirementSpecDocument
 from app.schemas.screen_spec import ScreenSpecDocument
 from app.schemas.test_scenario import TestScenarioDocument
 
@@ -117,38 +118,53 @@ def _screen_ids_by_req(screen_spec: "ScreenSpecDocument | None") -> dict[str, li
 def build_rtm_from_chain(
     scenario: TestScenarioDocument,
     screen_spec: "ScreenSpecDocument | None" = None,
+    requirement_spec: "RequirementSpecDocument | None" = None,
 ) -> RTMDocument:
-    """테스트시나리오(+선택적 화면정의서)로부터 RTM 을 결정론적으로 파생한다 (LLM 미사용).
+    """테스트시나리오(+선택적 화면정의서/요구사항정의서)로부터 RTM 을 결정론적으로 파생한다.
 
     요건 ID 별로 테스트케이스를 묶어 추적 행을 만들고, 화면정의서가 주어지면 각 요건의
     screen_ids 를 채운다. 구성상 RTM 의 요건/TC ID 가 시나리오와 항상 일치한다.
 
-    한계:
-    - 요건명은 해당 요건을 처음 다룬 테스트케이스의 '대분류 - 중분류' 로 대체한다.
-    - 프로그램 ID 는 비운다(범위 밖). 단계별 반영은 분석·시험만 True.
+    requirement_spec 이 주어지면(체인의 머리) 그것을 요건의 단일 진실 공급원으로 삼는다:
+    - 행은 요구사항정의서의 요건마다 1행 생성한다(TC 가 아직 없는 요건도 추적 행으로 노출 →
+      커버리지 공백이 보인다).
+    - req_name 은 요구사항정의서의 정식 요건명을 사용한다(시나리오 대분류 대체 한계 해소).
+    미지정 시 기존 동작: 시나리오에 등장한 요건만 행으로 만들고, 요건명은 '대분류 - 중분류' 로 대체.
+
+    공통 한계: 프로그램 ID 는 비운다(범위 밖). 단계별 반영은 분석=True, 설계=화면 유무,
+    시험=TC 유무로 파생한다.
     """
     cases = scenario.unit_test_cases + scenario.integration_test_cases
     tc_ids_by_req: dict[str, list[str]] = {}
-    req_name_by_req: dict[str, str] = {}
+    fallback_name_by_req: dict[str, str] = {}
     for case in cases:
         tc_ids_by_req.setdefault(case.req_id, []).append(case.tc_id)
-        req_name_by_req.setdefault(case.req_id, f"{case.category_major} - {case.category_minor}")
+        fallback_name_by_req.setdefault(
+            case.req_id, f"{case.category_major} - {case.category_minor}"
+        )
 
     screens_by_req = _screen_ids_by_req(screen_spec)
+
+    if requirement_spec is not None:
+        # 요구사항정의서의 요건 순서·정식 요건명을 기준으로 행을 만든다
+        ordered = [(r.req_id, r.name) for r in requirement_spec.requirements]
+    else:
+        ordered = [(req_id, fallback_name_by_req[req_id]) for req_id in tc_ids_by_req]
+
     rows = [
         RTMRow(
             req_id=req_id,
-            req_name=req_name_by_req[req_id],
+            req_name=req_name,
             screen_ids=screens_by_req.get(req_id, []),
-            tc_ids=tc_ids,
+            tc_ids=tc_ids_by_req.get(req_id, []),
             stage_reflection=StageReflection(
                 analysis=True,
                 design=bool(screens_by_req.get(req_id)),  # 화면 설계가 있으면 설계 반영
                 implementation=False,
-                test=True,
+                test=bool(tc_ids_by_req.get(req_id)),  # TC 가 있으면 시험 반영
             ),
         )
-        for req_id, tc_ids in tc_ids_by_req.items()
+        for req_id, req_name in ordered
     ]
     return RTMDocument(
         project_name=scenario.project_name,
@@ -162,6 +178,38 @@ def build_rtm_from_chain(
 def build_rtm_from_scenario(scenario: TestScenarioDocument) -> RTMDocument:
     """테스트시나리오만으로 RTM 을 파생한다 (화면 ID 는 비움). build_rtm_from_chain 의 단축형."""
     return build_rtm_from_chain(scenario, None)
+
+
+def validate_requirement_consistency(
+    requirement_spec: RequirementSpecDocument,
+    scenario: TestScenarioDocument,
+    screen_spec: "ScreenSpecDocument | None" = None,
+) -> None:
+    """체인의 머리(요구사항정의서) 기준 요건 추적성을 검증한다.
+
+    요구사항정의서를 REQ ID 의 단일 진실 공급원으로 삼아, 시나리오와 화면정의서가
+    참조하는 모든 요건 ID 가 요구사항정의서에 존재하는지 확인한다(유령 참조 거부).
+    요구사항정의서에 TC/화면이 아직 없는 요건이 있어도 통과한다(단방향 — 커버리지 공백 허용).
+    위반 시 어떤 ID 가 문제인지 포함한 ValidationFailedError 를 올린다.
+    """
+    spec_req_ids = {r.req_id for r in requirement_spec.requirements}
+    scenario_cases = scenario.unit_test_cases + scenario.integration_test_cases
+    scenario_req_ids = {c.req_id for c in scenario_cases}
+    screen_req_ids = (
+        {req_id for s in screen_spec.screens for req_id in s.req_ids} if screen_spec else set()
+    )
+
+    errors: list[str] = []
+    unknown_scenario = scenario_req_ids - spec_req_ids
+    unknown_screen = screen_req_ids - spec_req_ids
+    if unknown_scenario:
+        errors.append(
+            f"테스트시나리오 요건 ID 가 요구사항정의서에 없음: {sorted(unknown_scenario)}"
+        )
+    if unknown_screen:
+        errors.append(f"화면이 참조하는 요건 ID 가 요구사항정의서에 없음: {sorted(unknown_screen)}")
+    if errors:
+        raise ValidationFailedError(" / ".join(errors))
 
 
 def validate_screen_consistency(

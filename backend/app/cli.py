@@ -43,6 +43,11 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="화면정의서(pptx)도 함께 생성하고 RTM 에 화면 ID 를 연결 (체인)",
     )
+    gen.add_argument(
+        "--with-requirements",
+        action="store_true",
+        help="요구사항정의서(docx)를 체인의 머리로 생성 — 확정 REQ ID 로 4종 연결",
+    )
     gen.add_argument("--verbose", action="store_true", help="DEBUG 로그 출력 (프롬프트 본문 포함)")
     return parser
 
@@ -61,7 +66,9 @@ def _run_generate(args: argparse.Namespace) -> int:
         "written_date": args.date,
     }
     try:
-        if args.with_screens:
+        if args.with_requirements:
+            result = generate_chain(args.input, args.output, with_requirements=True, **cover)
+        elif args.with_screens:
             result = generate_chain(args.input, args.output, **cover)
         else:
             result = generate_test_scenario_and_rtm(args.input, args.output, **cover)
@@ -70,6 +77,8 @@ def _run_generate(args: argparse.Namespace) -> int:
         return 1
 
     print("\n생성 완료:")
+    if isinstance(result, ChainResult) and result.requirement_spec_path is not None:
+        print(f"  요구사항정의서: {result.requirement_spec_path}")
     print(f"  테스트시나리오: {result.test_scenario_path}")
     print(f"  요건추적표(RTM): {result.rtm_path}")
     if isinstance(result, ChainResult):
