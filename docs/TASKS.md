@@ -365,7 +365,7 @@ RTM 이 REQ→SCR→TC 추적성을 연결·검증한다. 빠진 고리였던 **
 ### B5-1. 인터페이스정의서 렌더러 PoC
 - [x] `schemas/interface_spec.py`(Interface/MessageField, IF ID 형식·유일성), `renderers/interface_spec_renderer.py`, `templates/interface_spec.xlsx`(+ build 스크립트), 골든/경계 테스트.
 - **AC**: 하드코딩 JSON 으로 양식 충실 + 인터페이스별 항목 펼침·번호 리셋·연계방식/주기/필수 표기 골든 검증 + 스키마 경계값.
-- 메모: **목록형** 11열(No./I/F ID/인터페이스명/송신·수신 시스템/연계 방식/주기/항목명/타입/필수/설명), STYLE_ROW=9, table_spec 와 동일 레이아웃. 인터페이스 메타는 항목마다 반복, 번호는 인터페이스 내 1부터. 필수→Y/N. 검증: IF ID 형식(IF-\\d{3,})·문서 전체 유일·항목명 인터페이스 내 유일. 골든 8 + 경계 6 = 14건(총 240건). 샘플 `out/interface_spec_sample.xlsx`(gitignore). **양식 시각 합격 판정은 사람 게이트(다음)**. 합격 시 LLM·CLI·웹.
+- 메모: **목록형** 11열(No./I/F ID/인터페이스명/송신·수신 시스템/연계 방식/주기/항목명/타입/필수/설명), STYLE_ROW=9, table_spec 와 동일 레이아웃. 인터페이스 메타는 항목마다 반복, 번호는 인터페이스 내 1부터. 필수→Y/N. 검증: IF ID 형식(IF-\\d{3,})·문서 전체 유일·항목명 인터페이스 내 유일. 골든 8 + 경계 6 = 14건(총 240건). 샘플 `out/interface_spec_sample.xlsx`(gitignore). **2026-06-14 사용자 양식 검수 — 합격**. 다음: LLM·CLI·웹.
 
 ## 백로그 (Phase 미배정)
 

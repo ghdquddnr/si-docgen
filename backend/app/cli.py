@@ -15,6 +15,7 @@ from pathlib import Path
 from app.config import get_settings
 from app.exceptions import SiDocgenError
 from app.pipelines.generate_chain import ChainResult, generate_chain
+from app.pipelines.generate_interface_spec import generate_and_render_interface_spec
 from app.pipelines.generate_table_spec import generate_and_render_table_spec
 from app.pipelines.generate_test_scenario import generate_test_scenario_and_rtm
 from app.pipelines.generate_wbs import generate_and_render_wbs
@@ -74,6 +75,16 @@ def _build_parser() -> argparse.ArgumentParser:
     tbl.add_argument("--author", default="작성자", help="표지 작성자")
     tbl.add_argument("--date", default=date.today().isoformat(), help="표지 작성일 (기본: 오늘)")
     tbl.add_argument("--verbose", action="store_true", help="DEBUG 로그 출력")
+
+    itf = sub.add_parser("interface-spec", help="원천 문서에서 인터페이스정의서 생성")
+    itf.add_argument("--input", required=True, type=Path, help="원천 문서 경로 (.docx/.pdf/.md)")
+    itf.add_argument("--output", required=True, type=Path, help="출력 디렉토리")
+    itf.add_argument("--model", default=None, help="LLM 모델 오버라이드 (LiteLLM 형식)")
+    itf.add_argument("--project-name", default="프로젝트", help="표지 프로젝트명")
+    itf.add_argument("--system-name", default="시스템", help="표지 시스템명")
+    itf.add_argument("--author", default="작성자", help="표지 작성자")
+    itf.add_argument("--date", default=date.today().isoformat(), help="표지 작성일 (기본: 오늘)")
+    itf.add_argument("--verbose", action="store_true", help="DEBUG 로그 출력")
     return parser
 
 
@@ -167,6 +178,31 @@ def _run_table_spec(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_interface_spec(args: argparse.Namespace) -> int:
+    if args.model:
+        os.environ["SIDOCGEN_LLM_MODEL"] = args.model
+        get_settings.cache_clear()
+    logger.info("사용 모델: %s", get_settings().llm_model)
+
+    try:
+        result = generate_and_render_interface_spec(
+            args.input,
+            args.output,
+            project_name=args.project_name,
+            system_name=args.system_name,
+            author=args.author,
+            written_date=args.date,
+        )
+    except SiDocgenError as exc:
+        logger.error("생성 실패: %s", exc)
+        return 1
+
+    print("\n생성 완료:")
+    print(f"  인터페이스정의서: {result.interface_spec_path}")
+    print(f"  통계: 인터페이스 {result.interface_count}개 / 항목 {result.field_count}개")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     """CLI 진입점. 종료 코드를 반환한다 (0=성공, 1=도메인 오류)."""
     args = _build_parser().parse_args(argv)
@@ -180,6 +216,8 @@ def main(argv: list[str] | None = None) -> int:
         return _run_wbs(args)
     if args.command == "table-spec":
         return _run_table_spec(args)
+    if args.command == "interface-spec":
+        return _run_interface_spec(args)
     return 2  # argparse 가 required subcommand 를 강제하므로 도달하지 않음
 
 

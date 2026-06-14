@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     screen_spec_model: str | None = None
     wbs_model: str | None = None
     table_spec_model: str | None = None
+    interface_spec_model: str | None = None
     # OpenAI 호환 게이트웨이 등 별도 엔드포인트 사용 시 지정 (Ollama 는 미지정 시 localhost:11434)
     llm_api_base: str | None = None
     # LLM 호출 1회 타임아웃 (초)
