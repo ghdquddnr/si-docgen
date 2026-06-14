@@ -68,3 +68,57 @@ def build_test_scenario_prompt(
         author=author,
         written_date=written_date,
     )
+
+
+SCREEN_SPEC_SYSTEM = (
+    "당신은 한국 SI 프로젝트의 화면 설계 전문가다. "
+    "요구사항 문서를 분석해 화면정의서를 작성한다. "
+    "반드시 지시된 JSON 스키마에 맞는 JSON 객체 하나만 출력한다."
+)
+
+SCREEN_SPEC_PROMPT_TEMPLATE = """다음 원천 문서를 분석하여 화면정의서를 작성하라.
+
+[원천 문서: {filename}]
+{source_text}
+
+[작성 규칙]
+1. 출력은 아래 JSON 스키마를 만족하는 JSON 객체 하나만 출력한다. 설명 문장·마크다운 금지.
+2. screen_id 는 SCR-001 부터 순번으로 부여한다 (중복 금지).
+3. 각 화면의 req_ids 에는 그 화면이 실현하는 요건 ID 를 아래 [요건 ID 목록] 에서만 선택해 넣는다.
+   목록에 없는 요건 ID 는 절대 만들지 않는다.
+4. fields 의 no 는 1 부터 순번이며, 화면의 입력/표시 항목을 빠짐없이 나열한다.
+5. logic 에는 화면의 주요 처리 로직을 줄 단위로 작성한다.
+6. 모든 텍스트는 한국어로 작성한다.
+7. 표지 정보: project_name="{project_name}", system_name="{system_name}",
+   author="{author}", written_date="{written_date}".
+
+[요건 ID 목록]
+{req_ids}
+
+[출력 JSON 스키마]
+{schema_json}
+"""
+
+
+def build_screen_spec_prompt(
+    source: SourceDocument,
+    schema_cls: type[BaseModel],
+    *,
+    project_name: str,
+    system_name: str,
+    author: str,
+    written_date: str,
+    req_ids: list[str],
+) -> str:
+    """화면정의서 생성 프롬프트를 조립한다. req_ids 로 화면↔요건 연결을 유도한다."""
+    req_id_text = ", ".join(req_ids) if req_ids else "(원천 문서에서 식별되는 요건 ID 사용)"
+    return SCREEN_SPEC_PROMPT_TEMPLATE.format(
+        filename=source.filename,
+        source_text=source_to_prompt_text(source),
+        schema_json=schema_to_prompt_json(schema_cls),
+        project_name=project_name,
+        system_name=system_name,
+        author=author,
+        written_date=written_date,
+        req_ids=req_id_text,
+    )

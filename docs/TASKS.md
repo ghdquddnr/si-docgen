@@ -11,8 +11,8 @@
 
 ## 현재 상태
 
-- **현재 Phase**: Phase 2 — 웹화 **완료** (P2-1~9, 2026-06-14 기능 합격 + UI 리디자인) → 다음 Phase 3
-- **진행 중 태스크**: 없음 (다음: Phase 3 분해 — 착수 시 사용자와 범위 확정)
+- **현재 Phase**: Phase 3 — 다중 산출물 체이닝 (착수, 화면정의서 + 추적성 / 파이프라인·CLI 먼저)
+- **진행 중 태스크**: P3-1 — 화면정의서 LLM 생성 + Screen 요건 연결
 - **차단 사항**: 없음.
 
 ---
@@ -190,9 +190,50 @@ LLM 호출이 처음 들어가는 Phase 이므로, "LLM은 JSON만 생성 + Pyda
 
 ---
 
-## Phase 3~4 — 개요만 유지 (착수 전 분해 금지)
+## Phase 3 — 다중 산출물 체이닝 + ID 추적성
 
-- **Phase 3**: 다중 산출물 체이닝(요구사항 → 화면정의서 → 테스트시나리오) + ID 추적성 + 로컬/상용 모델 전환
+**Phase 목표**: 원천 문서 1개에서 화면정의서(SCR)와 테스트시나리오(TC)를 함께 생성하고,
+RTM 이 REQ→SCR→TC 추적성을 연결·검증한다. 빠진 고리였던 **화면(SCR) 생성 + 요건↔화면 연결**을 채운다.
+
+> **착수 결정사항 (2026-06-14 사용자 확정)**:
+> 1. 범위: **화면정의서 추가 + 추적성** — source → 화면정의서 + 테스트시나리오 → RTM(REQ→SCR→TC).
+>    (요구사항정의서 docx 생성·전체 3종 체인은 이후 증분/백로그)
+> 2. 노출: **파이프라인 + CLI 먼저**, 웹 다중 산출물 UI 는 이후.
+
+### P3-1. 화면정의서 LLM 생성 + Screen 스키마 요건 연결
+- [x] `Screen` 스키마에 `req_ids: list[ReqId]`(기본 빈 목록, 기존 호환) 추가 — 화면이 실현하는 요건 ID
+- [x] `prompts.py` 화면정의서 생성 프롬프트(요건 ID 목록을 받아 화면이 참조하도록 지시) + `pipelines/generate_screen_spec.py` `generate_screen_spec(...)`
+- [x] `scripts/eval/eval_screen_spec.py` 평가 스크립트
+- **AC**: LLM 모킹 단위 테스트로 생성·검증 통과, 스키마 경계값(SCR/REQ ID 형식) 테스트. 평가 스크립트 end-to-end 출력.
+- 메모: `Screen.req_ids` 기본 빈 목록이라 기존 pptx 골든/픽스처(screen_spec_5.json) 무영향. 프롬프트는 [요건 ID 목록]을 주입해 화면이 그 안에서만 req_ids 선택하도록 지시. `generate_screen_spec(on_progress=...)` 콜백(parsing/generating). **e4b 평가 1/1 통과**: 화면 3개, SCR 중복 없음, 화면 참조 요건 ID = 원천(REQ-001/010/030) 정확 일치(유령 참조 없음). 회당 102s. 단위 14건 추가(스키마 경계 + 생성 모킹), 총 147건.
+
+### P3-2. 체인 정합성 + RTM 연결
+- [ ] `build_rtm_from_chain(scenario, screen_spec)` — req 별 screen_ids 를 화면정의서에서 채움
+- [ ] `validate_screen_consistency(screen_spec, scenario)` — 화면 req_ids ⊆ 시나리오 요건 ID(없는 REQ 참조 거부), RTM screen_ids ⊆ SCR 집합
+- **AC**: 골든/단위 테스트 — 정상 체인 통과 + 없는 REQ 참조 화면이 거부됨.
+- 메모:
+
+### P3-3. CLI 체인 오케스트레이션
+- [ ] `generate_test_scenario_and_rtm` 확장 또는 신규 체인 함수: source → 테스트시나리오 + 화면정의서 → RTM(screen_ids 채움) → xlsx 2종 + pptx 렌더링 (목업은 옵션)
+- [ ] CLI `si-docgen generate` 에 화면정의서 산출 추가(또는 `--with-screens`)
+- **AC**: LLM 모킹 e2e — 입력 → test_scenario.xlsx + rtm.xlsx(screen_ids 채워짐) + screen_spec.pptx 출력.
+- 메모:
+
+### P3-4. 로컬/상용 모델 전환
+- [ ] 단계별 모델 오버라이드 설정(예: `screen_spec_model`) — 미지정 시 기본 모델. LiteLLM 추상화 활용
+- [ ] 상용 모델(claude 등) 전환 문서. 실제 상용 평가는 API 키 확보 후(사용자 확인)
+- **AC**: 설정으로 단계별 모델이 분리 적용됨을 모킹 테스트로 확인.
+- 메모:
+
+### P3-5. Phase 3 품질 검수 (사람 게이트)
+- [ ] 실제 원천 문서로 체인 실행 → 화면정의서/테스트시나리오/RTM 의 추적성·품질 판정
+- **AC**: 추적성(REQ→SCR→TC) 정확성·생성물 품질 합격 판정, 개선 항목 환원.
+- 메모:
+
+---
+
+## Phase 4 — 개요만 유지 (착수 전 분해 금지)
+
 - **Phase 4**: React Flow 노드 캔버스 UI
 
 ---
