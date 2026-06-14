@@ -1,26 +1,46 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
+/* 엔터프라이즈 라이트 테마 — slate 중립색 + indigo 강조 */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-brand: #4f46e5;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border border-slate-200 bg-white shadow-sm;
+  }
+
+  .btn-primary {
+    @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-2.5
+      text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1
+      disabled:cursor-not-allowed disabled:opacity-50 bg-indigo-600 text-white hover:bg-indigo-700
+      focus:ring-indigo-300;
+  }
+  .btn-secondary {
+    @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-2.5
+      text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1
+      disabled:cursor-not-allowed disabled:opacity-50 border border-slate-300 bg-white text-slate-700
+      hover:bg-slate-50 focus:ring-slate-300;
+  }
+  .btn-success {
+    @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-lg px-4 py-2.5
+      text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1
+      disabled:cursor-not-allowed disabled:opacity-50 bg-emerald-600 text-white hover:bg-emerald-700
+      focus:ring-emerald-300;
+  }
+
+  .field-label {
+    @apply mb-1 block text-xs font-medium text-slate-600;
+  }
+  .field-input {
+    @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900
+      placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2
+      focus:ring-indigo-100;
+  }
 }

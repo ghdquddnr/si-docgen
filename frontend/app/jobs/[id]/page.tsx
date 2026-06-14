@@ -40,7 +40,8 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
       cases[index] = { ...cases[index], [field]: value };
       return { ...prev, [list]: cases };
     });
-    setRender(null); // 편집되면 이전 렌더 결과는 무효
+    setRender(null);
+    setSaveMsg(null);
   }
 
   async function handleSave() {
@@ -59,12 +60,14 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
   }
 
   async function handleRender() {
+    if (!scenario) return;
     setBusy(true);
     setSaveErr(null);
+    setSaveMsg(null);
     try {
-      await putScenario(id, scenario!); // 최신 편집본 저장 후 렌더링
+      await putScenario(id, scenario);
       setRender(await renderJob(id));
-      setSaveMsg("렌더링 완료 — 아래에서 다운로드하세요.");
+      setSaveMsg("렌더링이 완료되었습니다. 아래에서 다운로드하세요.");
     } catch (e) {
       setSaveErr(e instanceof ApiError ? `검증 실패: ${e.message}` : "렌더링에 실패했습니다.");
     } finally {
@@ -73,19 +76,54 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
   }
 
   if (loadError) {
-    return <Centered>{loadError}</Centered>;
+    return (
+      <Centered>
+        <p className="text-sm text-red-600">{loadError}</p>
+        <Link href="/" className="btn-secondary">
+          홈으로
+        </Link>
+      </Centered>
+    );
   }
   if (!scenario) {
-    return <Centered>불러오는 중…</Centered>;
+    return (
+      <Centered>
+        <span className="h-2 w-2 animate-pulse rounded-full bg-indigo-600" />
+        <p className="text-sm text-slate-500">시나리오를 불러오는 중…</p>
+      </Centered>
+    );
   }
 
+  const total = scenario.unit_test_cases.length + scenario.integration_test_cases.length;
+
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-6 py-10">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">검수 — {scenario.project_name}</h1>
-        <Link href="/" className="text-sm text-gray-500 underline">
-          새 문서
+    <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-6 py-8">
+      <div className="flex flex-col gap-3">
+        <Link href="/" className="w-fit text-xs text-slate-400 hover:text-slate-600">
+          ← 홈으로
         </Link>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-indigo-600">검수</p>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+              {scenario.project_name || "테스트시나리오"}
+            </h1>
+          </div>
+          <dl className="flex gap-6 text-xs text-slate-500">
+            <div>
+              <dt className="text-slate-400">시스템</dt>
+              <dd className="font-medium text-slate-700">{scenario.system_name || "-"}</dd>
+            </div>
+            <div>
+              <dt className="text-slate-400">작성자</dt>
+              <dd className="font-medium text-slate-700">{scenario.author || "-"}</dd>
+            </div>
+            <div>
+              <dt className="text-slate-400">총 케이스</dt>
+              <dd className="font-medium text-slate-700">{total}건</dd>
+            </div>
+          </dl>
+        </div>
       </div>
 
       <CaseTable
@@ -99,40 +137,44 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
         onChange={(i, f, v) => updateCase("integration_test_cases", i, f, v)}
       />
 
-      {saveErr && <p className="text-sm text-red-600">{saveErr}</p>}
-      {saveMsg && <p className="text-sm text-green-700">{saveMsg}</p>}
-
-      <div className="flex flex-wrap items-center gap-3">
-        <button
-          onClick={handleSave}
-          disabled={busy}
-          className="rounded border border-gray-300 px-4 py-2 text-sm disabled:opacity-50"
-        >
-          저장(재검증)
-        </button>
-        <button
-          onClick={handleRender}
-          disabled={busy}
-          className="rounded bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-        >
-          저장 후 렌더링
-        </button>
-        {render && (
-          <div className="flex gap-3">
-            <a
-              href={downloadUrl(id, "test_scenario")}
-              className="rounded bg-green-700 px-4 py-2 text-sm font-medium text-white"
-            >
-              테스트시나리오 다운로드
-            </a>
-            <a
-              href={downloadUrl(id, "rtm")}
-              className="rounded bg-green-700 px-4 py-2 text-sm font-medium text-white"
-            >
-              RTM 다운로드
-            </a>
+      {render && (
+        <div className="card flex flex-wrap items-center justify-between gap-4 border-emerald-200 bg-emerald-50 p-5">
+          <div className="text-sm">
+            <p className="font-medium text-emerald-800">산출물이 준비되었습니다.</p>
+            <p className="text-emerald-700">
+              단위 {render.unit_count} · 통합 {render.integration_count} · 요건{" "}
+              {render.requirement_count}건
+            </p>
           </div>
-        )}
+          <div className="flex flex-wrap gap-3">
+            <a href={downloadUrl(id, "test_scenario")} className="btn-success">
+              ↓ 테스트시나리오
+            </a>
+            <a href={downloadUrl(id, "rtm")} className="btn-success">
+              ↓ 요건추적표(RTM)
+            </a>
+            <Link href="/" className="btn-secondary">
+              홈으로
+            </Link>
+          </div>
+        </div>
+      )}
+
+      <div className="sticky bottom-0 -mx-6 mt-2 border-t border-slate-200 bg-slate-50/95 px-6 py-3 backdrop-blur">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-h-5 text-sm">
+            {saveErr && <span className="text-red-600">{saveErr}</span>}
+            {saveMsg && <span className="text-emerald-700">{saveMsg}</span>}
+          </div>
+          <div className="flex gap-3">
+            <button onClick={handleSave} disabled={busy} className="btn-secondary">
+              저장(재검증)
+            </button>
+            <button onClick={handleRender} disabled={busy} className="btn-primary">
+              {busy ? "처리 중…" : "저장 후 렌더링"}
+            </button>
+          </div>
+        </div>
       </div>
     </main>
   );
@@ -140,7 +182,7 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
 
 function Centered({ children }: { children: React.ReactNode }) {
   return (
-    <main className="flex flex-1 items-center justify-center px-6 py-20 text-sm text-gray-500">
+    <main className="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-20">
       {children}
     </main>
   );
@@ -167,38 +209,41 @@ function CaseTable({
   onChange: (index: number, field: keyof TestCase, value: unknown) => void;
 }) {
   return (
-    <section className="flex flex-col gap-2">
-      <h2 className="text-sm font-semibold text-gray-700">
-        {title} <span className="text-gray-400">({cases.length}건)</span>
+    <section className="flex flex-col gap-2.5">
+      <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+        {title}
+        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-normal text-slate-500">
+          {cases.length}건
+        </span>
       </h2>
       {cases.length === 0 ? (
-        <p className="text-sm text-gray-400">케이스 없음</p>
+        <p className="card p-6 text-center text-sm text-slate-400">케이스 없음</p>
       ) : (
-        <div className="overflow-x-auto rounded border border-gray-200">
+        <div className="card overflow-x-auto">
           <table className="min-w-full border-collapse text-xs">
-            <thead className="bg-gray-50">
-              <tr>
+            <thead className="sticky top-14 bg-slate-50">
+              <tr className="text-left text-slate-500">
                 {TEXT_FIELDS.map((f) => (
-                  <th key={f.key} className="border-b px-2 py-1.5 text-left font-medium">
+                  <th key={f.key} className="border-b border-slate-200 px-3 py-2 font-medium">
                     {f.label}
                   </th>
                 ))}
-                <th className="border-b px-2 py-1.5 text-left font-medium">테스트 절차</th>
+                <th className="border-b border-slate-200 px-3 py-2 font-medium">테스트 절차</th>
               </tr>
             </thead>
             <tbody>
               {cases.map((c, i) => (
-                <tr key={i} className="align-top">
+                <tr key={i} className="align-top odd:bg-white even:bg-slate-50/50">
                   {TEXT_FIELDS.map((f) => (
-                    <td key={f.key} className="border-b px-1 py-1">
+                    <td key={f.key} className="border-b border-slate-100 px-2 py-1.5">
                       <input
                         value={c[f.key] as string}
                         onChange={(e) => onChange(i, f.key, e.target.value)}
-                        className={`${f.width} rounded border border-transparent px-1.5 py-1 hover:border-gray-200 focus:border-gray-400 focus:outline-none`}
+                        className={`${f.width} rounded border border-transparent bg-transparent px-1.5 py-1 hover:border-slate-200 focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100`}
                       />
                     </td>
                   ))}
-                  <td className="border-b px-1 py-1">
+                  <td className="border-b border-slate-100 px-2 py-1.5">
                     <textarea
                       value={c.test_steps.join("\n")}
                       onChange={(e) =>
@@ -209,7 +254,7 @@ function CaseTable({
                         )
                       }
                       rows={Math.max(2, c.test_steps.length)}
-                      className="w-72 rounded border border-transparent px-1.5 py-1 hover:border-gray-200 focus:border-gray-400 focus:outline-none"
+                      className="w-72 rounded border border-transparent bg-transparent px-1.5 py-1 hover:border-slate-200 focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100"
                     />
                   </td>
                 </tr>
