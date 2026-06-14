@@ -29,7 +29,7 @@ LLM 기반으로 자동 생성하는 웹 애플리케이션.
 ## 기술 스택
 
 - **Backend**: Python 3.12+, FastAPI, Pydantic v2, LiteLLM
-- **렌더링**: docxtpl(Word), openpyxl(Excel), python-pptx(PowerPoint), Playwright(화면 목업 HTML 렌더링 → PNG 캡처)
+- **렌더링**: docxtpl(Word), openpyxl(Excel), python-pptx(PowerPoint — 화면 목업은 편집 가능한 도형으로 렌더, 이미지 미사용)
 - **Frontend**: Next.js (App Router), TypeScript, Tailwind CSS
 - **DB**: PostgreSQL (프로젝트/산출물/검수 이력 관리)
 - **패키지 관리**: backend는 uv, frontend는 pnpm
@@ -98,7 +98,7 @@ si-docgen/
 
 - **테스트시나리오(xlsx)**: TC ID / 연관 요건 ID / 대분류 / 중분류 / 시나리오명 / 사전조건 / 테스트 절차 / 기대 결과 / 결과(Pass·Fail) / 비고. 시트는 단위/통합 분리.
 - **요건추적표 RTM(xlsx)**: 요건 ID / 요건명 / 화면 ID / 프로그램 ID / TC ID / 단계별 반영 여부. 테스트시나리오와 동시 생성하여 정합성 보장.
-- **화면정의서(pptx)**: 슬라이드당 화면 1개. 화면 ID / 화면명 / 메뉴 경로 / 목업 이미지 / 항목 정의 표(번호·항목명·유형·필수·설명) / 처리 로직 설명. 목업은 LLM 생성 HTML을 Playwright로 캡처한 PNG를 삽입.
+- **화면정의서(pptx)**: 슬라이드당 화면 1개. 화면 ID / 화면명 / 메뉴 경로 / 목업 / 항목 정의 표(번호·항목명·유형·필수·설명) / 처리 로직 설명. 목업은 항목 정의에서 **편집 가능한 PPT 도형**(번호 배지·라벨·유형별 입력/버튼 도형)으로 렌더한다 — 이미지가 아니라 도형이므로 사용자가 PowerPoint에서 직접 수정 가능. (목업 content 를 mockup_area 안에 도형으로 그리는 것은 절대 원칙 4의 "템플릿 서식 재생성 금지"와 무관 — 템플릿의 슬라이드 양식·표·결재란은 그대로 보존하고, 지정된 목업 영역의 content 만 도형으로 생성한다.)
 - **WBS(xlsx)**: 계층 번호(1.1.2 형식) / 태스크명 / 담당 역할 / 시작일 / 종료일 / 공수(MD) / 선행 태스크 / 산출물. 계층 번호와 일정 계산은 LLM이 아닌 렌더러 측 코드 로직으로 처리.
 
 ## 개발 로드맵 (현재 Phase 표시는 TASKS.md 참조)
