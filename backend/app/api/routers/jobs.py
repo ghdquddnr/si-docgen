@@ -39,11 +39,13 @@ async def create_job(
     with_screens: Annotated[bool, Form()] = False,
     with_requirements: Annotated[bool, Form()] = False,
     with_wbs: Annotated[bool, Form()] = False,
+    with_table_spec: Annotated[bool, Form()] = False,
     start_date: Annotated[str, Form()] = "",
     requirement_spec_model: Annotated[str, Form()] = "",
     scenario_model: Annotated[str, Form()] = "",
     screen_spec_model: Annotated[str, Form()] = "",
     wbs_model: Annotated[str, Form()] = "",
+    table_spec_model: Annotated[str, Form()] = "",
 ) -> Job:
     """원천 문서를 업로드하고 백그라운드 생성 잡을 시작한다.
 
@@ -63,11 +65,13 @@ async def create_job(
             with_screens=with_screens,
             with_requirements=with_requirements,
             with_wbs=with_wbs,
+            with_table_spec=with_table_spec,
             start_date=start_date,
             requirement_spec_model=requirement_spec_model,
             scenario_model=scenario_model,
             screen_spec_model=screen_spec_model,
             wbs_model=wbs_model,
+            table_spec_model=table_spec_model,
         )
     except UnsupportedSourceError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -176,9 +180,18 @@ def get_wbs(job_id: str, db: Annotated[Session, Depends(get_db)]) -> dict:
     return job.wbs_json
 
 
+@router.get("/{job_id}/table-spec")
+def get_table_spec(job_id: str, db: Annotated[Session, Depends(get_db)]) -> dict:
+    """생성된 테이블정의서 JSON 을 반환한다 (with_table_spec 잡)."""
+    job = _require_job(db, job_id)
+    if job.table_spec_json is None:
+        raise HTTPException(status_code=409, detail="테이블정의서가 없습니다 (생성 잡이 아님)")
+    return job.table_spec_json
+
+
 @router.post("/{job_id}/render", response_model=RenderOut)
 def render_job(job_id: str, db: Annotated[Session, Depends(get_db)]) -> RenderOut:
-    """검수된 시나리오(+화면/요구사항정의서/WBS)로 산출물을 재렌더링한다 (LLM 미사용, 동기)."""
+    """검수된 시나리오(+화면/요구사항정의서/WBS/테이블정의서)를 재렌더링한다 (LLM 미사용, 동기)."""
     job = _require_job(db, job_id)
     if job.scenario_json is None:
         raise HTTPException(status_code=409, detail="렌더링할 시나리오가 없습니다")
@@ -188,6 +201,7 @@ def render_job(job_id: str, db: Annotated[Session, Depends(get_db)]) -> RenderOu
         job.screen_spec_json,
         job.requirement_spec_json,
         job.wbs_json,
+        job.table_spec_json,
     )
     return RenderOut(
         unit_count=result.unit_count,

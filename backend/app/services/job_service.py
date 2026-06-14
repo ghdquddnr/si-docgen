@@ -19,6 +19,7 @@ from app.exceptions import SiDocgenError
 from app.pipelines.generate_chain import REQUIREMENT_SPEC_TEMPLATE, SCREEN_SPEC_TEMPLATE
 from app.pipelines.generate_requirement_spec import generate_requirement_spec
 from app.pipelines.generate_screen_spec import generate_screen_spec
+from app.pipelines.generate_table_spec import TABLE_SPEC_TEMPLATE, generate_table_spec
 from app.pipelines.generate_test_scenario import (
     RTM_TEMPLATE,
     TEST_SCENARIO_TEMPLATE,
@@ -28,6 +29,7 @@ from app.pipelines.generate_wbs import WBS_TEMPLATE, generate_wbs
 from app.renderers.docx_renderer import render_requirement_spec
 from app.renderers.pptx_renderer import render_screen_spec
 from app.renderers.rtm_renderer import render_rtm
+from app.renderers.table_spec_renderer import render_table_spec
 from app.renderers.wbs_renderer import render_wbs
 from app.renderers.xlsx_renderer import render_test_scenario
 from app.schemas.requirement_spec import RequirementSpecDocument
@@ -38,6 +40,7 @@ from app.schemas.rtm import (
     validate_screen_consistency,
 )
 from app.schemas.screen_spec import ScreenSpecDocument
+from app.schemas.table_spec import TableSpecDocument
 from app.schemas.test_scenario import TestScenarioDocument
 from app.schemas.wbs import WBSDocument
 
@@ -53,6 +56,7 @@ OUTPUT_FILES = {
     "rtm": "rtm.xlsx",
     "screen_spec": "screen_spec.pptx",
     "wbs": "wbs.xlsx",
+    "table_spec": "table_spec.xlsx",
 }
 
 
@@ -92,12 +96,13 @@ def render_job_outputs(
     screen_spec_json: dict | None = None,
     requirement_spec_json: dict | None = None,
     wbs_json: dict | None = None,
+    table_spec_json: dict | None = None,
 ) -> JobRenderResult:
     """저장된(검수된) JSON 으로 산출물을 렌더링한다 (LLM 미사용).
 
     화면정의서 JSON 이 있으면 RTM 에 화면 ID 를 연결하고 pptx 도 렌더링한다.
     요구사항정의서 JSON 이 있으면(체인의 머리) RTM 요건명을 그것으로 채우고 docx 도 렌더링한다.
-    WBS JSON 이 있으면(체인과 독립) wbs.xlsx 도 렌더링한다.
+    WBS·테이블정의서 JSON 이 있으면(체인과 독립) 각 xlsx 도 렌더링한다.
     """
     scenario = TestScenarioDocument.model_validate(scenario_json)
     screen_spec = ScreenSpecDocument.model_validate(screen_spec_json) if screen_spec_json else None
@@ -133,6 +138,10 @@ def render_job_outputs(
         wbs = WBSDocument.model_validate(wbs_json)
         render_wbs(wbs, WBS_TEMPLATE, out / OUTPUT_FILES["wbs"])
         kinds.append("wbs")
+    if table_spec_json:
+        table_spec = TableSpecDocument.model_validate(table_spec_json)
+        render_table_spec(table_spec, TABLE_SPEC_TEMPLATE, out / OUTPUT_FILES["table_spec"])
+        kinds.append("table_spec")
 
     return JobRenderResult(
         unit_count=len(scenario.unit_test_cases),
@@ -155,11 +164,13 @@ def create_job(
     with_screens: bool = False,
     with_requirements: bool = False,
     with_wbs: bool = False,
+    with_table_spec: bool = False,
     start_date: str = "",
     requirement_spec_model: str | None = None,
     scenario_model: str | None = None,
     screen_spec_model: str | None = None,
     wbs_model: str | None = None,
+    table_spec_model: str | None = None,
 ) -> Job:
     """업로드 파일을 저장하고 대기 상태 잡을 생성한다."""
     suffix = Path(filename).suffix.lower()
@@ -186,11 +197,13 @@ def create_job(
         with_screens=with_screens,
         with_requirements=with_requirements,
         with_wbs=with_wbs,
+        with_table_spec=with_table_spec,
         start_date=start_date or written_date,
         requirement_spec_model=requirement_spec_model or None,
         scenario_model=scenario_model or None,
         screen_spec_model=screen_spec_model or None,
         wbs_model=wbs_model or None,
+        table_spec_model=table_spec_model or None,
     )
     db.add(job)
     db.commit()
@@ -284,6 +297,12 @@ def run_job(job_id: str) -> None:
                     model=job.wbs_model,
                 )
                 job.wbs_json = wbs.model_dump(mode="json")
+                db.commit()
+
+            if job.with_table_spec:
+                set_progress("table_spec")
+                table_spec = generate_table_spec(src, **cover, model=job.table_spec_model)
+                job.table_spec_json = table_spec.model_dump(mode="json")
                 db.commit()
 
             job.status = JobStatus.SUCCEEDED
