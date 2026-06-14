@@ -26,6 +26,7 @@ class JobOut(BaseModel):
     with_requirements: bool
     with_wbs: bool
     with_table_spec: bool
+    with_interface_spec: bool
     error: str | None
     created_at: datetime
 

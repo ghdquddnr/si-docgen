@@ -17,6 +17,10 @@ from app.db.models import Job, JobStatus
 from app.db.session import SessionLocal
 from app.exceptions import SiDocgenError
 from app.pipelines.generate_chain import REQUIREMENT_SPEC_TEMPLATE, SCREEN_SPEC_TEMPLATE
+from app.pipelines.generate_interface_spec import (
+    INTERFACE_SPEC_TEMPLATE,
+    generate_interface_spec,
+)
 from app.pipelines.generate_requirement_spec import generate_requirement_spec
 from app.pipelines.generate_screen_spec import generate_screen_spec
 from app.pipelines.generate_table_spec import TABLE_SPEC_TEMPLATE, generate_table_spec
@@ -27,11 +31,13 @@ from app.pipelines.generate_test_scenario import (
 )
 from app.pipelines.generate_wbs import WBS_TEMPLATE, generate_wbs
 from app.renderers.docx_renderer import render_requirement_spec
+from app.renderers.interface_spec_renderer import render_interface_spec
 from app.renderers.pptx_renderer import render_screen_spec
 from app.renderers.rtm_renderer import render_rtm
 from app.renderers.table_spec_renderer import render_table_spec
 from app.renderers.wbs_renderer import render_wbs
 from app.renderers.xlsx_renderer import render_test_scenario
+from app.schemas.interface_spec import InterfaceSpecDocument
 from app.schemas.requirement_spec import RequirementSpecDocument
 from app.schemas.rtm import (
     build_rtm_from_chain,
@@ -57,6 +63,7 @@ OUTPUT_FILES = {
     "screen_spec": "screen_spec.pptx",
     "wbs": "wbs.xlsx",
     "table_spec": "table_spec.xlsx",
+    "interface_spec": "interface_spec.xlsx",
 }
 
 
@@ -97,12 +104,13 @@ def render_job_outputs(
     requirement_spec_json: dict | None = None,
     wbs_json: dict | None = None,
     table_spec_json: dict | None = None,
+    interface_spec_json: dict | None = None,
 ) -> JobRenderResult:
     """저장된(검수된) JSON 으로 산출물을 렌더링한다 (LLM 미사용).
 
     화면정의서 JSON 이 있으면 RTM 에 화면 ID 를 연결하고 pptx 도 렌더링한다.
     요구사항정의서 JSON 이 있으면(체인의 머리) RTM 요건명을 그것으로 채우고 docx 도 렌더링한다.
-    WBS·테이블정의서 JSON 이 있으면(체인과 독립) 각 xlsx 도 렌더링한다.
+    WBS·테이블정의서·인터페이스정의서 JSON 이 있으면(체인과 독립) 각 xlsx 도 렌더링한다.
     """
     scenario = TestScenarioDocument.model_validate(scenario_json)
     screen_spec = ScreenSpecDocument.model_validate(screen_spec_json) if screen_spec_json else None
@@ -142,6 +150,12 @@ def render_job_outputs(
         table_spec = TableSpecDocument.model_validate(table_spec_json)
         render_table_spec(table_spec, TABLE_SPEC_TEMPLATE, out / OUTPUT_FILES["table_spec"])
         kinds.append("table_spec")
+    if interface_spec_json:
+        interface_spec = InterfaceSpecDocument.model_validate(interface_spec_json)
+        render_interface_spec(
+            interface_spec, INTERFACE_SPEC_TEMPLATE, out / OUTPUT_FILES["interface_spec"]
+        )
+        kinds.append("interface_spec")
 
     return JobRenderResult(
         unit_count=len(scenario.unit_test_cases),
@@ -165,12 +179,14 @@ def create_job(
     with_requirements: bool = False,
     with_wbs: bool = False,
     with_table_spec: bool = False,
+    with_interface_spec: bool = False,
     start_date: str = "",
     requirement_spec_model: str | None = None,
     scenario_model: str | None = None,
     screen_spec_model: str | None = None,
     wbs_model: str | None = None,
     table_spec_model: str | None = None,
+    interface_spec_model: str | None = None,
 ) -> Job:
     """업로드 파일을 저장하고 대기 상태 잡을 생성한다."""
     suffix = Path(filename).suffix.lower()
@@ -198,12 +214,14 @@ def create_job(
         with_requirements=with_requirements,
         with_wbs=with_wbs,
         with_table_spec=with_table_spec,
+        with_interface_spec=with_interface_spec,
         start_date=start_date or written_date,
         requirement_spec_model=requirement_spec_model or None,
         scenario_model=scenario_model or None,
         screen_spec_model=screen_spec_model or None,
         wbs_model=wbs_model or None,
         table_spec_model=table_spec_model or None,
+        interface_spec_model=interface_spec_model or None,
     )
     db.add(job)
     db.commit()
@@ -303,6 +321,14 @@ def run_job(job_id: str) -> None:
                 set_progress("table_spec")
                 table_spec = generate_table_spec(src, **cover, model=job.table_spec_model)
                 job.table_spec_json = table_spec.model_dump(mode="json")
+                db.commit()
+
+            if job.with_interface_spec:
+                set_progress("interface_spec")
+                interface_spec = generate_interface_spec(
+                    src, **cover, model=job.interface_spec_model
+                )
+                job.interface_spec_json = interface_spec.model_dump(mode="json")
                 db.commit()
 
             job.status = JobStatus.SUCCEEDED
