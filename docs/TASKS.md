@@ -386,11 +386,12 @@ RTM 이 REQ→SCR→TC 추적성을 연결·검증한다. 빠진 고리였던 **
 - **AC**: 하드코딩 JSON + 플레이스홀더 PNG 로 양식 충실 + 이미지 삽입/플레이스홀더 분기 골든 검증 + 스키마 경계값.
 - 메모: **핵심 설계 — 캡처는 렌더러 밖**. 단계는 `screen_ref`(예: SCR-001)로만 참조하고, 실제 이미지는 렌더 시 `images`(screen_ref→파일경로) 맵으로 전달(절대 원칙: 렌더러는 네트워크 I/O·캡처 안 함). 참조에 이미지 있으면 `InlineImage`(폭 14cm), 없으면 `[화면 캡처: …]` 플레이스홀더, screen_ref 없으면 빈 자리. 섹션·단계 번호는 docxtpl `loop.index`(단계는 섹션마다 1부터). **새 의존성 없음**(docxtpl 이미지 삽입 + zlib 생성 플레이스홀더 PNG `tests/golden/fixtures/manual_screenshot.png`, python-docx 가 PNG 헤더 직접 읽어 pillow 불필요). 골든 6 + 경계 5 = 11건(총 259건). 샘플 `out/user_manual_sample.docx`(gitignore). **2026-06-14 사용자 양식 검수 — 합격**.
 
-### B6-2. (예정) 매뉴얼 LLM 생성
-- [ ] 원천 문서(+화면정의서)에서 매뉴얼 본문(섹션·단계·screen_ref) 생성. 캡처 전이라 이미지는 플레이스홀더로 렌더.
+### B6-2. 매뉴얼 LLM 생성 + CLI
+- [x] `prompts.py` 사용자 매뉴얼 프롬프트(기능별 섹션·단계 행동 지시·screen_ref, 이미지 미출력) + `pipelines/generate_user_manual.py` + `config.user_manual_model` + `scripts/eval/eval_user_manual.py` + CLI `user-manual` 서브커맨드.
+- **AC**: 모킹 단위·CLI e2e + e4b eval. 메모: 캡처 전이라 화면 자리는 플레이스홀더로 렌더(`generate_and_render_user_manual(images=None)`). **e4b eval 1/1 통과**(섹션 3·단계 5·screen_ref 3/5, 43s). 단위 4건(총 263건).
 
-### B6-3. (예정) 화면 캡처 — Playwright 재도입 (착수 시 사용자 승인 필요)
-- [ ] **결정 필요**: 캡처 대상이 (a) 고객 제공 실제 앱 URL 인지 (b) 우리가 생성한 화면을 이미지화한 것인지. `uv add playwright` (새 의존성). 캡처 파이프라인(렌더러 밖)이 screen_ref→이미지 맵을 만들어 렌더러에 전달.
+### B6-3. 화면 캡처 (방식 결정 대기 — 2026-06-14)
+- [ ] **사용자 결정 필요**: (1) 수동 이미지 폴더(`--images-dir`, `{screen_ref}.png`, 새 의존성 없음) (2) 자동 캡처-우리 생성 화면(HTML→PNG, Playwright) (3) 자동 캡처-고객 실제 앱 URL(Playwright, 앱별 네비게이션). 렌더러는 이미 `images` 맵을 받으므로, 캡처 파이프라인(렌더러 밖)이 맵을 채워 전달.
 
 ## 백로그 (Phase 미배정)
 
