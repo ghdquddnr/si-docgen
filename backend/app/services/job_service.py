@@ -16,18 +16,22 @@ from app.config import get_settings
 from app.db.models import Job, JobStatus
 from app.db.session import SessionLocal
 from app.exceptions import SiDocgenError
-from app.pipelines.generate_chain import SCREEN_SPEC_TEMPLATE
+from app.pipelines.generate_chain import REQUIREMENT_SPEC_TEMPLATE, SCREEN_SPEC_TEMPLATE
+from app.pipelines.generate_requirement_spec import generate_requirement_spec
 from app.pipelines.generate_screen_spec import generate_screen_spec
 from app.pipelines.generate_test_scenario import (
     RTM_TEMPLATE,
     TEST_SCENARIO_TEMPLATE,
     generate_scenario,
 )
+from app.renderers.docx_renderer import render_requirement_spec
 from app.renderers.pptx_renderer import render_screen_spec
 from app.renderers.rtm_renderer import render_rtm
 from app.renderers.xlsx_renderer import render_test_scenario
+from app.schemas.requirement_spec import RequirementSpecDocument
 from app.schemas.rtm import (
     build_rtm_from_chain,
+    validate_requirement_consistency,
     validate_rtm_consistency,
     validate_screen_consistency,
 )
@@ -41,6 +45,7 @@ SUPPORTED_SUFFIXES = {".docx", ".pdf", ".md", ".markdown", ".txt"}
 
 # 다운로드 종류 → 산출물 파일명
 OUTPUT_FILES = {
+    "requirement_spec": "requirement_spec.docx",
     "test_scenario": "test_scenario.xlsx",
     "rtm": "rtm.xlsx",
     "screen_spec": "screen_spec.pptx",
@@ -78,25 +83,43 @@ def output_dir(job_id: str) -> Path:
 
 
 def render_job_outputs(
-    job_id: str, scenario_json: dict, screen_spec_json: dict | None = None
+    job_id: str,
+    scenario_json: dict,
+    screen_spec_json: dict | None = None,
+    requirement_spec_json: dict | None = None,
 ) -> JobRenderResult:
     """저장된(검수된) JSON 으로 산출물을 렌더링한다 (LLM 미사용).
 
     화면정의서 JSON 이 있으면 RTM 에 화면 ID 를 연결하고 pptx 도 렌더링한다.
+    요구사항정의서 JSON 이 있으면(체인의 머리) RTM 요건명을 그것으로 채우고 docx 도 렌더링한다.
     """
     scenario = TestScenarioDocument.model_validate(scenario_json)
     screen_spec = ScreenSpecDocument.model_validate(screen_spec_json) if screen_spec_json else None
-    if screen_spec is not None:
+    requirement_spec = (
+        RequirementSpecDocument.model_validate(requirement_spec_json)
+        if requirement_spec_json
+        else None
+    )
+
+    if requirement_spec is not None:
+        validate_requirement_consistency(requirement_spec, scenario, screen_spec)
+    elif screen_spec is not None:
         validate_screen_consistency(screen_spec, scenario)
 
-    rtm = build_rtm_from_chain(scenario, screen_spec)
+    rtm = build_rtm_from_chain(scenario, screen_spec, requirement_spec)
     validate_rtm_consistency(rtm, scenario)
 
     out = output_dir(job_id)
     out.mkdir(parents=True, exist_ok=True)
+    kinds: list[str] = []
+    if requirement_spec is not None:
+        render_requirement_spec(
+            requirement_spec, REQUIREMENT_SPEC_TEMPLATE, out / OUTPUT_FILES["requirement_spec"]
+        )
+        kinds.append("requirement_spec")
     render_test_scenario(scenario, TEST_SCENARIO_TEMPLATE, out / OUTPUT_FILES["test_scenario"])
     render_rtm(rtm, RTM_TEMPLATE, out / OUTPUT_FILES["rtm"])
-    kinds = ["test_scenario", "rtm"]
+    kinds.extend(["test_scenario", "rtm"])
     if screen_spec is not None:
         render_screen_spec(screen_spec, SCREEN_SPEC_TEMPLATE, out / OUTPUT_FILES["screen_spec"])
         kinds.append("screen_spec")
@@ -120,6 +143,8 @@ def create_job(
     author: str,
     written_date: str,
     with_screens: bool = False,
+    with_requirements: bool = False,
+    requirement_spec_model: str | None = None,
     scenario_model: str | None = None,
     screen_spec_model: str | None = None,
 ) -> Job:
@@ -146,13 +171,21 @@ def create_job(
         author=author,
         written_date=written_date,
         with_screens=with_screens,
+        with_requirements=with_requirements,
+        requirement_spec_model=requirement_spec_model or None,
         scenario_model=scenario_model or None,
         screen_spec_model=screen_spec_model or None,
     )
     db.add(job)
     db.commit()
     db.refresh(job)
-    logger.info("잡 생성: id=%s file=%s with_screens=%s", job_id, filename, with_screens)
+    logger.info(
+        "잡 생성: id=%s file=%s with_screens=%s with_requirements=%s",
+        job_id,
+        filename,
+        with_screens,
+        with_requirements,
+    )
     return job
 
 
@@ -184,7 +217,30 @@ def run_job(job_id: str) -> None:
                 "written_date": job.written_date or "",
             }
 
-            if job.with_screens:
+            if job.with_requirements:
+                set_progress("requirements")
+                requirement_spec = generate_requirement_spec(
+                    src, **cover, model=job.requirement_spec_model
+                )
+                job.requirement_spec_json = requirement_spec.model_dump(mode="json")
+                db.commit()
+                req_pairs = [(r.req_id, r.name) for r in requirement_spec.requirements]
+                screen_req_ids = [r.req_id for r in requirement_spec.requirements]
+
+                set_progress("scenario")
+                scenario = generate_scenario(
+                    src, **cover, requirements=req_pairs, model=job.scenario_model
+                )
+                job.scenario_json = scenario.model_dump(mode="json")
+                db.commit()
+
+                set_progress("screens")
+                screen_spec = generate_screen_spec(
+                    src, **cover, req_ids=screen_req_ids, model=job.screen_spec_model
+                )
+                validate_requirement_consistency(requirement_spec, scenario, screen_spec)
+                job.screen_spec_json = screen_spec.model_dump(mode="json")
+            elif job.with_screens:
                 set_progress("scenario")
                 scenario = generate_scenario(src, **cover, model=job.scenario_model)
                 job.scenario_json = scenario.model_dump(mode="json")

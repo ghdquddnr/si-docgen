@@ -13,12 +13,15 @@ export interface Job {
   author: string;
   written_date: string;
   with_screens: boolean;
+  with_requirements: boolean;
   error: string | null;
   created_at: string;
 }
 
 export interface CreateJobOptions {
   withScreens?: boolean;
+  withRequirements?: boolean;
+  requirementSpecModel?: string;
   scenarioModel?: string;
   screenSpecModel?: string;
 }
@@ -107,6 +110,8 @@ export async function createJob(
   form.append("author", cover.author);
   form.append("written_date", cover.written_date);
   form.append("with_screens", String(opts.withScreens ?? false));
+  form.append("with_requirements", String(opts.withRequirements ?? false));
+  if (opts.requirementSpecModel) form.append("requirement_spec_model", opts.requirementSpecModel);
   if (opts.scenarioModel) form.append("scenario_model", opts.scenarioModel);
   if (opts.screenSpecModel) form.append("screen_spec_model", opts.screenSpecModel);
   return parse<Job>(await fetch(`${API_BASE}/jobs`, { method: "POST", body: form }));

@@ -112,6 +112,7 @@ export interface OutputNodeData extends Record<string, unknown> {
 export type OutputNodeType = Node<OutputNodeData, "output">;
 
 const DOWNLOAD_LABEL: Record<string, string> = {
+  requirement_spec: "요구사항정의서",
   test_scenario: "테스트시나리오",
   rtm: "요건추적표",
   screen_spec: "화면정의서",

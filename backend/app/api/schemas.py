@@ -23,6 +23,7 @@ class JobOut(BaseModel):
     author: str
     written_date: str
     with_screens: bool
+    with_requirements: bool
     error: str | None
     created_at: datetime
 

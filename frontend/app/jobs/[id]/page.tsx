@@ -147,12 +147,11 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
-            <a href={downloadUrl(id, "test_scenario")} className="btn-success">
-              ↓ 테스트시나리오
-            </a>
-            <a href={downloadUrl(id, "rtm")} className="btn-success">
-              ↓ 요건추적표(RTM)
-            </a>
+            {Object.keys(render.downloads).map((kind) => (
+              <a key={kind} href={downloadUrl(id, kind)} className="btn-success">
+                ↓ {DOWNLOAD_LABEL[kind] ?? kind}
+              </a>
+            ))}
             <Link href="/" className="btn-secondary">
               홈으로
             </Link>
@@ -179,6 +178,13 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
     </main>
   );
 }
+
+const DOWNLOAD_LABEL: Record<string, string> = {
+  requirement_spec: "요구사항정의서",
+  test_scenario: "테스트시나리오",
+  rtm: "요건추적표(RTM)",
+  screen_spec: "화면정의서",
+};
 
 function Centered({ children }: { children: React.ReactNode }) {
   return (

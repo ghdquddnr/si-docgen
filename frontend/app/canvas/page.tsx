@@ -27,14 +27,16 @@ const nodeTypes = { source: SourceNode, llm: LlmNode, output: OutputNode };
 
 const POSITIONS: Record<string, { x: number; y: number }> = {
   source: { x: 0, y: 150 },
-  scenario: { x: 300, y: 0 },
-  screen: { x: 300, y: 240 },
-  rtm: { x: 640, y: 150 },
+  requirement: { x: 280, y: 150 },
+  scenario: { x: 560, y: 0 },
+  screen: { x: 560, y: 240 },
+  rtm: { x: 840, y: 150 },
 };
 
 const edges: Edge[] = [
-  { id: "e-source-scenario", source: "source", target: "scenario", animated: true },
-  { id: "e-source-screen", source: "source", target: "screen", animated: true },
+  { id: "e-source-req", source: "source", target: "requirement", animated: true },
+  { id: "e-req-scenario", source: "requirement", target: "scenario", animated: true },
+  { id: "e-req-screen", source: "requirement", target: "screen", animated: true },
   { id: "e-scenario-rtm", source: "scenario", target: "rtm" },
   { id: "e-screen-rtm", source: "screen", target: "rtm" },
 ];
@@ -43,40 +45,36 @@ function today(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+// 진행 단계 순서(노드 보유 단계). progress 값이 이 중 어디인지로 노드 상태를 파생한다.
+const STAGES = ["requirements", "scenario", "screens"] as const;
+
 function nodeStatuses(running: boolean, ev: ProgressEvent | null) {
   const prog = ev?.progress ?? null;
   const term = ev?.status;
   const ok = term === "succeeded";
   const fail = term === "failed";
-  const inScenario = prog === null || prog === "queued" || prog === "scenario";
-  const inScreens = prog === "screens";
-  const scenario: NodeStatus = ok
-    ? "done"
-    : fail
-      ? inScenario
-        ? "error"
-        : "done"
-      : running
-        ? inScenario
-          ? "running"
-          : "done"
-        : "idle";
-  const screen: NodeStatus = ok
-    ? "done"
-    : fail
-      ? inScreens
-        ? "error"
-        : "idle"
-      : running && inScreens
-        ? "running"
-        : "idle";
-  const output: NodeStatus = ok ? "done" : fail ? "error" : "idle";
-  return { scenario, screen, output };
+  // queued/null 은 첫 단계(요구사항) 직전 → 인덱스 0 으로 본다
+  const curIdx = prog ? STAGES.indexOf(prog as (typeof STAGES)[number]) : -1;
+  const activeIdx = curIdx < 0 ? 0 : curIdx;
+
+  const statusFor = (idx: number): NodeStatus => {
+    if (ok) return "done";
+    if (fail) return idx < activeIdx ? "done" : idx === activeIdx ? "error" : "idle";
+    if (running) return idx < activeIdx ? "done" : idx === activeIdx ? "running" : "idle";
+    return "idle";
+  };
+
+  return {
+    requirement: statusFor(0),
+    scenario: statusFor(1),
+    screen: statusFor(2),
+    output: ok ? "done" : fail ? "error" : "idle",
+  };
 }
 
 export default function CanvasPage() {
   const [file, setFile] = useState<File | null>(null);
-  const [models, setModels] = useState({ scenario: "", screen: "" });
+  const [models, setModels] = useState({ requirement: "", scenario: "", screen: "" });
   const [cover, setCover] = useState<CoverInfo>({
     project_name: "",
     system_name: "",
@@ -114,6 +112,14 @@ export default function CanvasPage() {
       switch (id) {
         case "source":
           return { filename: file?.name ?? null, onPick: setFile, status: file ? "done" : "idle", disabled: running };
+        case "requirement":
+          return {
+            title: "요구사항정의서",
+            status: st.requirement,
+            model: models.requirement,
+            onModel: (m: string) => setModels((s) => ({ ...s, requirement: m })),
+            disabled: running,
+          };
         case "scenario":
           return {
             title: "테스트시나리오",
@@ -134,11 +140,11 @@ export default function CanvasPage() {
           return { status: st.output, jobId, downloads, onRender: doRender, rendering };
       }
     },
-    [file, running, st.scenario, st.screen, st.output, models, jobId, downloads, rendering, doRender],
+    [file, running, st.requirement, st.scenario, st.screen, st.output, models, jobId, downloads, rendering, doRender],
   );
 
   const [rfNodes, setRfNodes, onNodesChange] = useNodesState<Node>(
-    ["source", "scenario", "screen", "rtm"].map((id) => ({
+    ["source", "requirement", "scenario", "screen", "rtm"].map((id) => ({
       id,
       type: id === "source" ? "source" : id === "rtm" ? "output" : "llm",
       position: POSITIONS[id],
@@ -160,7 +166,8 @@ export default function CanvasPage() {
     setEvent(null);
     try {
       const job = await createJob(file, cover, {
-        withScreens: true,
+        withRequirements: true,
+        requirementSpecModel: models.requirement,
         scenarioModel: models.scenario,
         screenSpecModel: models.screen,
       });

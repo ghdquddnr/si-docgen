@@ -11,8 +11,8 @@
 
 ## 현재 상태
 
-- **현재 Phase**: 로드맵(Phase 0~4) 완료. **백로그 작업 — 요구사항정의서(docx) CLI/파이프라인 완료**.
-- **진행 중 태스크**: 없음 (B1-1·B1-2 완료. 다음: 사람 검수 또는 웹 노출 B1-3 여부 확정).
+- **현재 Phase**: 로드맵(Phase 0~4) 완료. **백로그 작업 — 요구사항정의서(docx) 웹 노출까지 구현 완료**.
+- **진행 중 태스크**: 없음 (B1-1·B1-2·B1-3 구현 완료. 다음: 사람 검수 게이트 — 캔버스 라이브 실행).
 - **차단 사항**: 없음.
 
 ---
@@ -288,14 +288,20 @@ RTM 이 REQ→SCR→TC 추적성을 연결·검증한다. 빠진 고리였던 **
 - **AC**: LLM 모킹 e2e — 4종 생성·RTM 정식 요건명 연결·유령 REQ 거부. 실제 모델 체인 확인.
 - 메모: **사용자 결정(2026-06-14): CLI/파이프라인 먼저, 웹은 이후**. 설계: 요건정의서를 REQ 단일 진실 공급원으로 — (1) 시나리오 프롬프트에 `[요건 목록]` 주입(`build_test_scenario_prompt(requirements=...)`), 화면엔 요건정의서 REQ ID 집합 전달. (2) `build_rtm_from_chain(requirement_spec=...)` 이 **요건마다 1행**(TC 없는 요건도 커버리지 공백 행으로 노출) + **정식 요건명** 사용 → P1-5 한계(요건명 대체) 해소. (3) 검증 앵커가 요건정의서로 이동(`validate_requirement_consistency`); `with_requirements` 아닐 땐 기존 `validate_screen_consistency` 유지(하위 호환). 단계반영: `test=bool(tc_ids)`(기존 시나리오 경로는 항상 TC 있어 동작 불변). CLI 3모드: 기본(2종)/`--with-screens`(3종)/`--with-requirements`(4종). **실제 e4b 체인 검증**: 요건 3(REQ-001/010/030 비순차) → 4종 문서 전체에 동일 ID 일관 적용, RTM 정식 요건명·SCR·TC 연결 확인. 단위 8건 추가(총 170건).
 
-### B1-3. 웹 노출 (미착수 — 사용자 확정 대기)
-- [ ] 웹 잡 체인에 `with_requirements` 추가, 검수 화면·다운로드에 요건정의서(docx) 포함. (B1-2 결정 시 '웹은 이후'로 보류)
+### B1-3. 웹 노출
+- [x] **백엔드(B1-3a)**: `Job` 에 `with_requirements`/`requirement_spec_json`/`requirement_spec_model` 컬럼 + 마이그레이션. `run_job` 요건 머리 분기(progress: requirements→scenario→screens). `render_job_outputs(requirement_spec_json=)` docx 렌더 + RTM 정식 요건명. `create_job`/`POST /jobs` 폼 필드. `GET /jobs/{id}/requirement-spec`. download kind `requirement_spec`(docx media type). `JobOut.with_requirements`.
+- [x] **프론트(B1-3b)**: `api.ts`(Job.with_requirements, CreateJobOptions.withRequirements/requirementSpecModel). 캔버스에 **요구사항정의서 노드를 머리로 추가**(source→요건→시나리오/화면→RTM, 5노드), 단계 상태 매핑(STAGES requirements/scenario/screens), `withRequirements:true` 로 4종 체인 실행. 검수 화면 다운로드 패널을 `render.downloads` 동적 렌더로 변경(요건정의서·화면정의서 자동 노출). nodes.tsx 다운로드 라벨에 요구사항정의서 추가.
+- **AC**: LLM 모킹 e2e — with_requirements 업로드 → 요건/시나리오/화면 JSON 저장 → 렌더 → docx 다운로드·RTM 정식 요건명. lint/build 통과.
+- 메모: 백엔드 e2e 4건 추가(총 174건), ruff/eslint/next build 통과. **프리뷰 검증 한계**: 캔버스 5노드·요구사항정의서 노드·모델 select 렌더 확인(DOM), 콘솔 런타임 에러 없음. **엣지는 헤드리스 프리뷰에서 미표시** — 원인은 React Flow 가 노드/핸들 측정에 ResizeObserver 를 쓰는데 이 프리뷰 환경에서 ResizeObserver 가 발화하지 않음(+ 초기 error#004). 코드는 엣지가 정상 표시됐던 P4-4 와 동일 패턴·동일 컨테이너 설정이라 실제 브라우저에서는 표시됨. 라이브 실행(실모델 4종 생성·노드 상태 진행) 판정은 사람 게이트(B1-3c).
+
+### B1-3c. 웹 요건 체인 사람 검수 (게이트 — 대기)
+- [ ] 캔버스에서 업로드→요건/시나리오/화면 노드 상태 진행→완료→요구사항정의서 docx 포함 4종 다운로드를 실제 브라우저로 수행 판정.
 
 ## 백로그 (Phase 미배정)
 
 - [x] ~~화면정의서 목업 이미지(HTML→PNG)~~ → **편집 가능한 PPT 도형 목업**으로 구현(2026-06-14). `pptx_renderer._draw_mockup`(번호 배지·라벨·유형별 컨트롤), HTML/Playwright/pillow 의존 제거. 골든 테스트 `tests/golden/test_pptx_mockup.py`.
-- [ ] 웹 UI 다중 산출물 노출 (검수 화면에 화면정의서 포함)
-- [~] 요구사항정의서(docx) 생성 — 위 'B1' 섹션에서 진행 중
+- [ ] 웹 검수 화면에 화면정의서/요구사항정의서 **편집** UI (현재는 생성·다운로드만, 시나리오만 편집 가능)
+- [x] 요구사항정의서(docx) 생성 — 위 'B1' 섹션(B1-1·B1-2·B1-3) 완료, 사람 게이트(B1-3c)만 대기
 - [ ] 사용자 매뉴얼(docx) 생성 — **실제 화면 캡처**(Playwright 재도입: `uv add playwright`) → Word 각 단계에 이미지 삽입. 착수 전 확정: 캡처 대상이 (a) 고객 제공 실제 앱 URL 인지 (b) 우리가 생성한 화면을 이미지화한 것인지. (화면정의서 목업과 달리 매뉴얼은 실제 화면 이미지가 필요 — 2026-06-14 논의, 기능 착수 시까지 보류)
 - [ ] 프론트 검수 화면 행 추가/삭제 (P2-7 에서 MVP 제외)
 - [ ] 양식 온보딩 반자동화: 고객사 양식 분석 → 플레이스홀더 위치 제안 도구
