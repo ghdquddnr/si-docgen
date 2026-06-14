@@ -11,8 +11,8 @@
 
 ## 현재 상태
 
-- **현재 Phase**: 로드맵(Phase 0~4) 완료. **백로그 — B1~B4 완료, B5(인터페이스정의서) 렌더러 PoC 완료**.
-- **진행 중 태스크**: 없음 (B5-1 렌더러 PoC 완료. 다음: 양식 사람 검수 → 합격 시 LLM/CLI/웹).
+- **현재 Phase**: 로드맵(Phase 0~4) 완료. **백로그 — B1~B5 전부 완료(요건정의서·검수편집·WBS·테이블·인터페이스정의서)**.
+- **진행 중 태스크**: 없음 (B5 전체 완료. 신규 산출물 백로그 소진. 다음: 라이브 사람 검수 또는 잔여 백로그).
 - **차단 사항**: 없음.
 
 ---
@@ -365,7 +365,16 @@ RTM 이 REQ→SCR→TC 추적성을 연결·검증한다. 빠진 고리였던 **
 ### B5-1. 인터페이스정의서 렌더러 PoC
 - [x] `schemas/interface_spec.py`(Interface/MessageField, IF ID 형식·유일성), `renderers/interface_spec_renderer.py`, `templates/interface_spec.xlsx`(+ build 스크립트), 골든/경계 테스트.
 - **AC**: 하드코딩 JSON 으로 양식 충실 + 인터페이스별 항목 펼침·번호 리셋·연계방식/주기/필수 표기 골든 검증 + 스키마 경계값.
-- 메모: **목록형** 11열(No./I/F ID/인터페이스명/송신·수신 시스템/연계 방식/주기/항목명/타입/필수/설명), STYLE_ROW=9, table_spec 와 동일 레이아웃. 인터페이스 메타는 항목마다 반복, 번호는 인터페이스 내 1부터. 필수→Y/N. 검증: IF ID 형식(IF-\\d{3,})·문서 전체 유일·항목명 인터페이스 내 유일. 골든 8 + 경계 6 = 14건(총 240건). 샘플 `out/interface_spec_sample.xlsx`(gitignore). **2026-06-14 사용자 양식 검수 — 합격**. 다음: LLM·CLI·웹.
+- 메모: **목록형** 11열(No./I/F ID/인터페이스명/송신·수신 시스템/연계 방식/주기/항목명/타입/필수/설명), STYLE_ROW=9, table_spec 와 동일 레이아웃. 인터페이스 메타는 항목마다 반복, 번호는 인터페이스 내 1부터. 필수→Y/N. 검증: IF ID 형식(IF-\\d{3,})·문서 전체 유일·항목명 인터페이스 내 유일. 골든 8 + 경계 6 = 14건(총 240건). 샘플 `out/interface_spec_sample.xlsx`(gitignore). **2026-06-14 사용자 양식 검수 — 합격**.
+
+### B5-2,3. 인터페이스정의서 LLM 생성 + CLI
+- [x] `prompts.py` 인터페이스정의서 프롬프트(IF-00x·송수신·연계방식/주기·메시지 항목) + `pipelines/generate_interface_spec.py` + `config.interface_spec_model` + `scripts/eval/eval_interface_spec.py` + CLI `interface-spec` 서브커맨드.
+- **AC**: 모킹 단위·CLI e2e + e4b eval. 메모: **e4b eval 1/1 통과**(인터페이스 3·항목 9·IF ID 유일·연계방식 {REST API:2, Web Service:1}, 94.6s). 단위 4건(총 244건).
+
+### B5-4. 인터페이스정의서 웹 연동
+- [x] **백엔드(B5-4a)**: `Job` with_interface_spec/interface_spec_json/interface_spec_model 컬럼 + 마이그레이션. `run_job` 분기(progress interface_spec). `render_job_outputs(interface_spec_json=)`, download kind interface_spec. `POST /jobs` 폼, `GET /jobs/{id}/interface-spec`, `JobOut.with_interface_spec`. e2e 4건(총 248건).
+- [x] **프론트(B5-4b)**: `api.ts`(withInterfaceSpec/interfaceSpecModel). 캔버스에 **인터페이스정의서 노드 추가**(source→인터페이스정의서 독립, 8노드), STAGES 에 interface_spec 추가, `withInterfaceSpec:true` 로 실행. 다운로드 라벨 추가.
+- **AC**: lint/build 통과, 캔버스 8노드 렌더. 메모: 프리뷰 DOM 검증 — 8노드(source/요구사항/시나리오/화면/WBS/테이블/인터페이스/RTM) 렌더·콘솔 에러 없음. **라이브 7종 생성 판정은 사람 게이트(후속)**. → 신규 산출물(B3·B4·B5) 전부 PoC~웹 완료.
 
 ## 백로그 (Phase 미배정)
 
@@ -378,7 +387,7 @@ RTM 이 REQ→SCR→TC 추적성을 연결·검증한다. 빠진 고리였던 **
 - [ ] HWP(hwpx) 출력 지원 검토
 - [x] WBS 산출물 — 위 'B3' 섹션(렌더러 PoC·LLM·CLI·웹 완료, 라이브 사람 게이트만 후속)
 - [x] 테이블정의서 — 위 'B4' 섹션(렌더러·LLM·CLI·웹 완료, 라이브 사람 게이트만 후속)
-- [~] 인터페이스정의서 — 위 'B5' 섹션(렌더러 PoC 완료)
+- [x] 인터페이스정의서 — 위 'B5' 섹션(렌더러·LLM·CLI·웹 완료, 라이브 사람 게이트만 후속)
 
 ---
 
