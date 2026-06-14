@@ -10,7 +10,6 @@ import {
   type Node,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
@@ -193,18 +192,13 @@ export default function CanvasPage() {
   return (
     <main className="flex flex-1 flex-col">
       <div className="border-b border-slate-200 bg-white px-6 py-4">
-        <div className="mx-auto flex max-w-6xl items-center justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-indigo-600">
-              파이프라인 캔버스
-            </p>
-            <h1 className="text-lg font-bold tracking-tight text-slate-900">
-              산출물 생성 파이프라인
-            </h1>
-          </div>
-          <Link href="/" className="text-sm text-slate-500 hover:text-slate-900">
-            홈으로
-          </Link>
+        <div className="mx-auto max-w-6xl">
+          <p className="text-xs font-semibold uppercase tracking-wider text-indigo-600">
+            파이프라인 캔버스
+          </p>
+          <h1 className="text-lg font-bold tracking-tight text-slate-900">
+            산출물 생성 파이프라인
+          </h1>
         </div>
       </div>
 
