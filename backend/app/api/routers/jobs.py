@@ -38,9 +38,12 @@ async def create_job(
     written_date: Annotated[str, Form()] = "",
     with_screens: Annotated[bool, Form()] = False,
     with_requirements: Annotated[bool, Form()] = False,
+    with_wbs: Annotated[bool, Form()] = False,
+    start_date: Annotated[str, Form()] = "",
     requirement_spec_model: Annotated[str, Form()] = "",
     scenario_model: Annotated[str, Form()] = "",
     screen_spec_model: Annotated[str, Form()] = "",
+    wbs_model: Annotated[str, Form()] = "",
 ) -> Job:
     """원천 문서를 업로드하고 백그라운드 생성 잡을 시작한다.
 
@@ -59,9 +62,12 @@ async def create_job(
             written_date=written_date,
             with_screens=with_screens,
             with_requirements=with_requirements,
+            with_wbs=with_wbs,
+            start_date=start_date,
             requirement_spec_model=requirement_spec_model,
             scenario_model=scenario_model,
             screen_spec_model=screen_spec_model,
+            wbs_model=wbs_model,
         )
     except UnsupportedSourceError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -161,14 +167,27 @@ def update_requirement_spec(
     return job
 
 
+@router.get("/{job_id}/wbs")
+def get_wbs(job_id: str, db: Annotated[Session, Depends(get_db)]) -> dict:
+    """생성된 WBS JSON 을 반환한다 (with_wbs 잡)."""
+    job = _require_job(db, job_id)
+    if job.wbs_json is None:
+        raise HTTPException(status_code=409, detail="WBS 가 없습니다 (WBS 생성 잡이 아님)")
+    return job.wbs_json
+
+
 @router.post("/{job_id}/render", response_model=RenderOut)
 def render_job(job_id: str, db: Annotated[Session, Depends(get_db)]) -> RenderOut:
-    """검수된 시나리오(+화면/요구사항정의서)로 산출물을 재렌더링한다 (LLM 미사용, 동기)."""
+    """검수된 시나리오(+화면/요구사항정의서/WBS)로 산출물을 재렌더링한다 (LLM 미사용, 동기)."""
     job = _require_job(db, job_id)
     if job.scenario_json is None:
         raise HTTPException(status_code=409, detail="렌더링할 시나리오가 없습니다")
     result = job_service.render_job_outputs(
-        job_id, job.scenario_json, job.screen_spec_json, job.requirement_spec_json
+        job_id,
+        job.scenario_json,
+        job.screen_spec_json,
+        job.requirement_spec_json,
+        job.wbs_json,
     )
     return RenderOut(
         unit_count=result.unit_count,

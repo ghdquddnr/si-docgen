@@ -47,10 +47,15 @@ class Job(Base):
     # 요구사항정의서를 체인의 머리로 생성하는지 여부 및 생성된 요구사항정의서 JSON
     with_requirements: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     requirement_spec_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # WBS(작업분해구조) 생성 여부·결과 JSON·일정 기준 시작일 (체인과 독립적인 산출물)
+    with_wbs: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    wbs_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    start_date: Mapped[str] = mapped_column(String(10), default="", server_default="")
     # 단계별 모델 오버라이드(잡 단위). 미지정이면 설정/기본 모델
     requirement_spec_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
     scenario_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
     screen_spec_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    wbs_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
     # 실패 시 사람이 읽을 오류 메시지
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
