@@ -1,0 +1,35 @@
+{
+  "project_name": "차세대 통합 업무시스템 구축",
+  "system_name": "통합 업무포털",
+  "author": "홍길동",
+  "written_date": "2026-06-14",
+  "sections": [
+    {
+      "title": "로그인",
+      "description": "포털에 접속하여 로그인하는 방법을 안내합니다.",
+      "steps": [
+        {
+          "instruction": "로그인 화면에서 사용자 ID와 비밀번호를 입력하고 [로그인] 버튼을 클릭합니다.",
+          "screen_ref": "SCR-001",
+          "caption": "로그인 화면"
+        },
+        {
+          "instruction": "비밀번호를 5회 잘못 입력하면 계정이 잠기므로 주의합니다.",
+          "screen_ref": "",
+          "caption": ""
+        }
+      ]
+    },
+    {
+      "title": "공지사항 조회",
+      "description": "공지사항 목록을 확인하는 방법을 안내합니다.",
+      "steps": [
+        {
+          "instruction": "메인 화면에서 [공지사항] 메뉴를 클릭하여 목록을 확인합니다.",
+          "screen_ref": "SCR-002",
+          "caption": "공지사항 목록"
+        }
+      ]
+    }
+  ]
+}
