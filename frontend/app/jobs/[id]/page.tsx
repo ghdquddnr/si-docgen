@@ -263,22 +263,24 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
         </div>
       )}
 
-      <div className="sticky bottom-0 -mx-6 mt-2 border-t border-slate-200 bg-slate-50/95 px-6 py-3 backdrop-blur">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="min-h-5 text-sm">
-            {saveErr && <span className="text-red-600">{saveErr}</span>}
-            {saveMsg && <span className="text-emerald-700">{saveMsg}</span>}
-          </div>
-          <div className="flex gap-3">
-            <button onClick={handleSave} disabled={busy} className="btn-secondary">
-              저장(재검증)
-            </button>
-            <button onClick={handleRender} disabled={busy} className="btn-primary">
-              {busy ? "처리 중…" : "저장 후 렌더링"}
-            </button>
+      {!render && (
+        <div className="sticky bottom-0 -mx-6 mt-2 border-t border-slate-200 bg-slate-50/95 px-6 py-3 backdrop-blur">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-h-5 text-sm">
+              {saveErr && <span className="text-red-600">{saveErr}</span>}
+              {saveMsg && <span className="text-emerald-700">{saveMsg}</span>}
+            </div>
+            <div className="flex gap-3">
+              <button onClick={handleSave} disabled={busy} className="btn-secondary">
+                저장(재검증)
+              </button>
+              <button onClick={handleRender} disabled={busy} className="btn-primary">
+                {busy ? "처리 중…" : "저장 후 렌더링"}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </main>
   );
 }
