@@ -14,6 +14,7 @@ from pathlib import Path
 
 from app.config import get_settings
 from app.exceptions import SiDocgenError
+from app.onboarding import KIND_HEADERS, analyze_xlsx_template, format_report
 from app.pipelines.generate_chain import ChainResult, generate_chain
 from app.pipelines.generate_interface_spec import generate_and_render_interface_spec
 from app.pipelines.generate_table_spec import generate_and_render_table_spec
@@ -102,6 +103,13 @@ def _build_parser() -> argparse.ArgumentParser:
         help="화면 캡처 폴더. {screen_ref}.png 파일을 각 단계에 삽입 (예: SCR-001.png)",
     )
     man.add_argument("--verbose", action="store_true", help="DEBUG 로그 출력")
+
+    ana = sub.add_parser(
+        "analyze-template", help="고객사 엑셀 양식 분석 → 표지 셀·헤더·컬럼 위치 제안"
+    )
+    ana.add_argument("--input", required=True, type=Path, help="고객 양식 경로 (.xlsx)")
+    ana.add_argument("--kind", required=True, choices=sorted(KIND_HEADERS), help="산출물 종류")
+    ana.add_argument("--sheet", default=None, help="분석할 시트명 (기본: 첫 번째 시트)")
     return parser
 
 
@@ -250,6 +258,16 @@ def _run_user_manual(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_analyze_template(args: argparse.Namespace) -> int:
+    try:
+        analysis = analyze_xlsx_template(args.input, args.kind, sheet_name=args.sheet)
+    except SiDocgenError as exc:
+        logger.error("분석 실패: %s", exc)
+        return 1
+    print(format_report(analysis))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     """CLI 진입점. 종료 코드를 반환한다 (0=성공, 1=도메인 오류)."""
     args = _build_parser().parse_args(argv)
@@ -267,6 +285,8 @@ def main(argv: list[str] | None = None) -> int:
         return _run_interface_spec(args)
     if args.command == "user-manual":
         return _run_user_manual(args)
+    if args.command == "analyze-template":
+        return _run_analyze_template(args)
     return 2  # argparse 가 required subcommand 를 강제하므로 도달하지 않음
 
 
