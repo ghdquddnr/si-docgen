@@ -8,6 +8,7 @@ import logging
 from collections.abc import Callable
 from pathlib import Path
 
+from app.config import get_settings
 from app.llm.generate import generate_validated
 from app.llm.prompts import SCREEN_SPEC_SYSTEM, build_screen_spec_prompt
 from app.pipelines.source_loader import load_source
@@ -48,6 +49,11 @@ def generate_screen_spec(
         written_date=written_date,
         req_ids=req_ids,
     )
-    screen_spec = generate_validated(prompt, ScreenSpecDocument, system=SCREEN_SPEC_SYSTEM)
+    screen_spec = generate_validated(
+        prompt,
+        ScreenSpecDocument,
+        system=SCREEN_SPEC_SYSTEM,
+        model=get_settings().screen_spec_model,
+    )
     logger.info("화면정의서 생성 완료: 화면 %d개", len(screen_spec.screens))
     return screen_spec

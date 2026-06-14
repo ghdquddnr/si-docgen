@@ -220,10 +220,10 @@ RTM 이 REQ→SCR→TC 추적성을 연결·검증한다. 빠진 고리였던 **
 - 메모: `generate_chain` 이 두 LLM 호출(시나리오/화면) 격리, 사이에 `validate_screen_consistency` + `validate_rtm_consistency` 로 REQ→SCR→TC 검증. 목업(HTML→PNG, Playwright)은 브라우저 의존이라 **기본 미생성**(`render_screen_spec(mockup_images=None)`) — 옵션은 후속. `--with-screens` 없으면 기존 2종 흐름 유지(하위 호환). e2e 3건: 3종 생성·pptx 열림 / RTM 화면 ID 연결(REQ-001→SCR-001, REQ-002→SCR-002) / CLI 종료코드. 모킹 테스트가 실제 pptx 렌더까지 수행. 실제 LLM 체인은 P3-5 게이트. 총 154건.
 
 ### P3-4. 로컬/상용 모델 전환
-- [ ] 단계별 모델 오버라이드 설정(예: `screen_spec_model`) — 미지정 시 기본 모델. LiteLLM 추상화 활용
-- [ ] 상용 모델(claude 등) 전환 문서. 실제 상용 평가는 API 키 확보 후(사용자 확인)
+- [x] 단계별 모델 오버라이드 설정(`scenario_model`/`screen_spec_model`) — 미지정 시 `llm_model`. LiteLLM 추상화 활용
+- [x] 상용 모델 전환 문서(`.env.example`). 실제 상용 평가는 API 키 확보 후(사용자 확인)
 - **AC**: 설정으로 단계별 모델이 분리 적용됨을 모킹 테스트로 확인.
-- 메모:
+- 메모: `complete_json`/`generate_validated` 에 `model` 인자 추가(미지정 시 `settings.llm_model`). `generate_scenario`→`scenario_model`, `generate_screen_spec`→`screen_spec_model` 전달. 테스트는 complete_json 의 model 인자를 가로채 단계별 분리 적용 확인(미설정 시 None→client 가 기본 모델 사용). **기존 mock 들(complete_json) model kwarg 수용하도록 갱신**(FakeLLM, fake_complete_json 등). `.env.example` 에 단계별 모델 예시(시나리오=로컬, 화면=상용) 추가. 총 156건.
 
 ### P3-5. Phase 3 품질 검수 (사람 게이트)
 - [ ] 실제 원천 문서로 체인 실행 → 화면정의서/테스트시나리오/RTM 의 추적성·품질 판정

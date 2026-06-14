@@ -48,6 +48,7 @@ def generate_validated[T: BaseModel](
     *,
     system: str | None = None,
     max_attempts: int | None = None,
+    model: str | None = None,
 ) -> T:
     """LLM 으로 JSON 을 생성하고 schema_cls 검증을 통과한 모델만 반환한다."""
     attempts = max_attempts or get_settings().llm_max_attempts
@@ -56,7 +57,7 @@ def generate_validated[T: BaseModel](
     json_schema = schema_cls.model_json_schema()
 
     for attempt in range(1, attempts + 1):
-        raw = complete_json(current_prompt, system=system, json_schema=json_schema)
+        raw = complete_json(current_prompt, system=system, json_schema=json_schema, model=model)
         try:
             data = json.loads(_strip_code_fence(raw))
         except json.JSONDecodeError as exc:

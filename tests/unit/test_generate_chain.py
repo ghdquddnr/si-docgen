@@ -73,7 +73,7 @@ MOCK_SCREEN_SPEC: dict[str, Any] = {
 
 @pytest.fixture
 def mock_llm(monkeypatch: pytest.MonkeyPatch) -> None:
-    def fake(prompt: str, *, system: str | None = None, json_schema=None) -> str:
+    def fake(prompt: str, *, system: str | None = None, json_schema=None, model=None) -> str:
         payload = MOCK_SCREEN_SPEC if system and "화면" in system else MOCK_SCENARIO
         return json.dumps(payload, ensure_ascii=False)
 

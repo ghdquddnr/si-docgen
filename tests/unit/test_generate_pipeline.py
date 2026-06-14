@@ -70,7 +70,9 @@ MOCK_SCENARIO: dict[str, Any] = {
 def mock_llm(monkeypatch: pytest.MonkeyPatch) -> None:
     """generate_validated 가 사용하는 complete_json 을 고정 JSON 응답으로 대체한다."""
 
-    def fake_complete_json(prompt: str, *, system: str | None = None, json_schema=None) -> str:
+    def fake_complete_json(
+        prompt: str, *, system: str | None = None, json_schema=None, model=None
+    ) -> str:
         return json.dumps(MOCK_SCENARIO, ensure_ascii=False)
 
     monkeypatch.setattr("app.llm.generate.complete_json", fake_complete_json)

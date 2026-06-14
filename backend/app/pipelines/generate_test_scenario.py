@@ -11,6 +11,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+from app.config import get_settings
 from app.llm.generate import generate_validated
 from app.llm.prompts import TEST_SCENARIO_SYSTEM, build_test_scenario_prompt
 from app.pipelines.source_loader import load_source
@@ -71,7 +72,12 @@ def generate_scenario(
         author=author,
         written_date=written_date,
     )
-    scenario = generate_validated(prompt, TestScenarioDocument, system=TEST_SCENARIO_SYSTEM)
+    scenario = generate_validated(
+        prompt,
+        TestScenarioDocument,
+        system=TEST_SCENARIO_SYSTEM,
+        model=get_settings().scenario_model,
+    )
     logger.info(
         "테스트시나리오 생성 완료: 단위 %d건 + 통합 %d건",
         len(scenario.unit_test_cases),
