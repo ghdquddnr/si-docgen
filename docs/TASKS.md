@@ -347,7 +347,7 @@ RTM 이 REQ→SCR→TC 추적성을 연결·검증한다. 빠진 고리였던 **
 ### B4-1. 테이블정의서 렌더러 PoC
 - [x] `schemas/table_spec.py`(Table/Column, 물리명 유일성), `renderers/table_spec_renderer.py`, `templates/table_spec.xlsx`(+ `scripts/templates/build_table_spec_template.py`), 골든/경계 테스트.
 - **AC**: 하드코딩 JSON 으로 양식 충실 + 테이블별 컬럼 펼침·PK/Null/FK 표기·번호 리셋 골든 검증 + 스키마 경계값.
-- 메모: **목록형** 11열(No./테이블 논리·물리명/컬럼 논리·물리명/타입/PK/FK 참조/Null/기본값/설명), STYLE_ROW=9. 테이블 논리/물리명은 컬럼마다 반복, 번호는 테이블 내 1부터. PK→"PK", Null→Y/N, FK→참조 문자열. 검증: 테이블 물리명 문서 전체 유일·컬럼 물리명 테이블 내 유일. 골든 8 + 경계 5 = 13건(총 218건). 샘플 `out/table_spec_sample.xlsx`(gitignore). **양식 시각 합격 판정은 사람 게이트(다음)**. 합격 시 LLM 생성(테이블 트리 출력)·CLI·웹.
+- 메모: **목록형** 11열(No./테이블 논리·물리명/컬럼 논리·물리명/타입/PK/FK 참조/Null/기본값/설명), STYLE_ROW=9. 테이블 논리/물리명은 컬럼마다 반복, 번호는 테이블 내 1부터. PK→"PK", Null→Y/N, FK→참조 문자열. 검증: 테이블 물리명 문서 전체 유일·컬럼 물리명 테이블 내 유일. 골든 8 + 경계 5 = 13건(총 218건). 샘플 `out/table_spec_sample.xlsx`(gitignore). **2026-06-14 사용자 양식 검수 — 합격**. 다음: LLM 생성·CLI·웹.
 
 ## 백로그 (Phase 미배정)
 

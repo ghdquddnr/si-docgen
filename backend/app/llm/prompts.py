@@ -201,6 +201,56 @@ WBS_PROMPT_TEMPLATE = """다음 원천 문서를 분석하여 작업분해구조
 """
 
 
+TABLE_SPEC_SYSTEM = (
+    "당신은 한국 SI 프로젝트의 데이터 모델링(DBA) 전문가다. "
+    "요구사항 문서를 분석해 테이블정의서를 작성한다. "
+    "반드시 지시된 JSON 스키마에 맞는 JSON 객체 하나만 출력한다."
+)
+
+TABLE_SPEC_PROMPT_TEMPLATE = """다음 원천 문서를 분석하여 테이블정의서를 작성하라.
+
+[원천 문서: {filename}]
+{source_text}
+
+[작성 규칙]
+1. 출력은 아래 JSON 스키마를 만족하는 JSON 객체 하나만 출력한다. 설명 문장·마크다운 금지.
+2. 업무에 필요한 테이블을 도출한다. 각 테이블의 physical_name 은 영문 대문자+언더스코어
+   (예: TB_USER), 문서 전체에서 유일하게 부여한다.
+3. 각 테이블의 columns 에는 컬럼을 빠짐없이 나열한다. physical_name 은 한 테이블 안에서 유일,
+   data_type 은 VARCHAR(n)/NUMBER/DATE/CHAR(n) 등 구체적으로 적는다.
+4. 각 테이블에 기본키(is_pk=true) 컬럼을 둔다. 외래키는 fk_ref 에 "참조테이블.컬럼" 형식으로
+   적고(예: TB_DEPT.DEPT_CODE), 외래키가 아니면 "".
+5. is_nullable 은 필수 컬럼이면 false. default 와 description 은 해당될 때만 채운다.
+6. 모든 한국어 텍스트는 한국어로 작성한다(논리명·설명). 물리명·타입은 영문/표준 표기.
+7. 표지 정보: project_name="{project_name}", system_name="{system_name}",
+   author="{author}", written_date="{written_date}".
+
+[출력 JSON 스키마]
+{schema_json}
+"""
+
+
+def build_table_spec_prompt(
+    source: SourceDocument,
+    schema_cls: type[BaseModel],
+    *,
+    project_name: str,
+    system_name: str,
+    author: str,
+    written_date: str,
+) -> str:
+    """테이블정의서 생성 프롬프트를 조립한다."""
+    return TABLE_SPEC_PROMPT_TEMPLATE.format(
+        filename=source.filename,
+        source_text=source_to_prompt_text(source),
+        schema_json=schema_to_prompt_json(schema_cls),
+        project_name=project_name,
+        system_name=system_name,
+        author=author,
+        written_date=written_date,
+    )
+
+
 def build_wbs_prompt(
     source: SourceDocument,
     schema_cls: type[BaseModel],
