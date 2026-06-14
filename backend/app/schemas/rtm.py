@@ -10,6 +10,7 @@ from typing import Annotated
 from pydantic import BaseModel, Field, StringConstraints, model_validator
 
 from app.exceptions import ValidationFailedError
+from app.schemas.screen_spec import ScreenSpecDocument
 from app.schemas.test_scenario import TestScenarioDocument
 
 # 리스트 항목에 ID 형식 제약을 부여하기 위한 제약 문자열 타입
@@ -100,17 +101,31 @@ def validate_rtm_consistency(rtm: RTMDocument, scenario: TestScenarioDocument) -
         raise ValidationFailedError(" / ".join(errors))
 
 
-def build_rtm_from_scenario(scenario: TestScenarioDocument) -> RTMDocument:
-    """테스트시나리오로부터 RTM 을 결정론적으로 파생한다 (LLM 추가 호출 없음).
+def _screen_ids_by_req(screen_spec: "ScreenSpecDocument | None") -> dict[str, list[str]]:
+    """요건 ID → 그 요건을 실현하는 화면 ID 목록 (화면 순서 유지, 중복 제거)."""
+    mapping: dict[str, list[str]] = {}
+    if screen_spec is None:
+        return mapping
+    for screen in screen_spec.screens:
+        for req_id in screen.req_ids:
+            ids = mapping.setdefault(req_id, [])
+            if screen.screen_id not in ids:
+                ids.append(screen.screen_id)
+    return mapping
 
-    요건 ID 별로 테스트케이스를 묶어 추적 행을 만든다. 구성상 RTM 의 요건/TC ID 가
-    시나리오와 항상 일치하므로 validate_rtm_consistency 를 자동으로 만족한다.
 
-    한계(Phase 1):
-    - 요건명은 해당 요건을 처음 다룬 테스트케이스의 '대분류 - 중분류' 로 대체한다
-      (원천 문서의 정식 요건명은 스키마에 없어 가져올 수 없음 — P1-6 개선 후보).
-    - 화면/프로그램 ID 는 Phase 1 범위 밖이라 비운다.
-    - 단계별 반영은 분석(원천 요건 분석됨)·시험(TC 작성됨)만 True, 설계/구현은 False.
+def build_rtm_from_chain(
+    scenario: TestScenarioDocument,
+    screen_spec: "ScreenSpecDocument | None" = None,
+) -> RTMDocument:
+    """테스트시나리오(+선택적 화면정의서)로부터 RTM 을 결정론적으로 파생한다 (LLM 미사용).
+
+    요건 ID 별로 테스트케이스를 묶어 추적 행을 만들고, 화면정의서가 주어지면 각 요건의
+    screen_ids 를 채운다. 구성상 RTM 의 요건/TC ID 가 시나리오와 항상 일치한다.
+
+    한계:
+    - 요건명은 해당 요건을 처음 다룬 테스트케이스의 '대분류 - 중분류' 로 대체한다.
+    - 프로그램 ID 는 비운다(범위 밖). 단계별 반영은 분석·시험만 True.
     """
     cases = scenario.unit_test_cases + scenario.integration_test_cases
     tc_ids_by_req: dict[str, list[str]] = {}
@@ -119,13 +134,18 @@ def build_rtm_from_scenario(scenario: TestScenarioDocument) -> RTMDocument:
         tc_ids_by_req.setdefault(case.req_id, []).append(case.tc_id)
         req_name_by_req.setdefault(case.req_id, f"{case.category_major} - {case.category_minor}")
 
+    screens_by_req = _screen_ids_by_req(screen_spec)
     rows = [
         RTMRow(
             req_id=req_id,
             req_name=req_name_by_req[req_id],
+            screen_ids=screens_by_req.get(req_id, []),
             tc_ids=tc_ids,
             stage_reflection=StageReflection(
-                analysis=True, design=False, implementation=False, test=True
+                analysis=True,
+                design=bool(screens_by_req.get(req_id)),  # 화면 설계가 있으면 설계 반영
+                implementation=False,
+                test=True,
             ),
         )
         for req_id, tc_ids in tc_ids_by_req.items()
@@ -137,3 +157,27 @@ def build_rtm_from_scenario(scenario: TestScenarioDocument) -> RTMDocument:
         written_date=scenario.written_date,
         rows=rows,
     )
+
+
+def build_rtm_from_scenario(scenario: TestScenarioDocument) -> RTMDocument:
+    """테스트시나리오만으로 RTM 을 파생한다 (화면 ID 는 비움). build_rtm_from_chain 의 단축형."""
+    return build_rtm_from_chain(scenario, None)
+
+
+def validate_screen_consistency(
+    screen_spec: "ScreenSpecDocument", scenario: TestScenarioDocument
+) -> None:
+    """화면정의서와 테스트시나리오 간 요건 추적성을 검증한다 (REQ→SCR 고리).
+
+    화면이 참조하는 모든 요건 ID 는 테스트시나리오가 다루는 요건 집합에 존재해야 한다.
+    위반(존재하지 않는 요건 참조) 시 ValidationFailedError.
+    """
+    scenario_cases = scenario.unit_test_cases + scenario.integration_test_cases
+    scenario_req_ids = {c.req_id for c in scenario_cases}
+    screen_req_ids = {req_id for s in screen_spec.screens for req_id in s.req_ids}
+
+    unknown = screen_req_ids - scenario_req_ids
+    if unknown:
+        raise ValidationFailedError(
+            f"화면이 참조하는 요건 ID 가 테스트시나리오에 없음: {sorted(unknown)}"
+        )

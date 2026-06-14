@@ -208,10 +208,10 @@ RTM 이 REQ→SCR→TC 추적성을 연결·검증한다. 빠진 고리였던 **
 - 메모: `Screen.req_ids` 기본 빈 목록이라 기존 pptx 골든/픽스처(screen_spec_5.json) 무영향. 프롬프트는 [요건 ID 목록]을 주입해 화면이 그 안에서만 req_ids 선택하도록 지시. `generate_screen_spec(on_progress=...)` 콜백(parsing/generating). **e4b 평가 1/1 통과**: 화면 3개, SCR 중복 없음, 화면 참조 요건 ID = 원천(REQ-001/010/030) 정확 일치(유령 참조 없음). 회당 102s. 단위 14건 추가(스키마 경계 + 생성 모킹), 총 147건.
 
 ### P3-2. 체인 정합성 + RTM 연결
-- [ ] `build_rtm_from_chain(scenario, screen_spec)` — req 별 screen_ids 를 화면정의서에서 채움
-- [ ] `validate_screen_consistency(screen_spec, scenario)` — 화면 req_ids ⊆ 시나리오 요건 ID(없는 REQ 참조 거부), RTM screen_ids ⊆ SCR 집합
+- [x] `build_rtm_from_chain(scenario, screen_spec)` — req 별 screen_ids 를 화면정의서에서 채움
+- [x] `validate_screen_consistency(screen_spec, scenario)` — 화면 req_ids ⊆ 시나리오 요건 ID(없는 REQ 참조 거부)
 - **AC**: 골든/단위 테스트 — 정상 체인 통과 + 없는 REQ 참조 화면이 거부됨.
-- 메모:
+- 메모: `build_rtm_from_chain(scenario, screen_spec=None)` 신설(기존 `build_rtm_from_scenario` 는 이것의 단축형). req→screen_ids 는 화면 순서 유지·중복 제거로 채움, **화면 있는 요건은 stage_reflection.design=True** 로 승격. `validate_screen_consistency` 는 화면 req_ids ⊆ 시나리오 요건(없는 REQ 참조 시 ValidationFailedError). RTM screen_ids ⊆ SCR 집합은 구성상 자동 보장. 테스트 4건(연결/빈칸/정합성/거부), 총 151건.
 
 ### P3-3. CLI 체인 오케스트레이션
 - [ ] `generate_test_scenario_and_rtm` 확장 또는 신규 체인 함수: source → 테스트시나리오 + 화면정의서 → RTM(screen_ids 채움) → xlsx 2종 + pptx 렌더링 (목업은 옵션)
