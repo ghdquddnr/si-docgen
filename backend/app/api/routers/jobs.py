@@ -10,6 +10,8 @@ from sqlalchemy.orm import Session
 from app.api.schemas import JobOut, RenderOut
 from app.db.models import Job
 from app.db.session import get_db
+from app.schemas.requirement_spec import RequirementSpecDocument
+from app.schemas.screen_spec import ScreenSpecDocument
 from app.schemas.test_scenario import TestScenarioDocument
 from app.services import job_service
 from app.services.job_service import UnsupportedSourceError
@@ -110,6 +112,26 @@ def get_screen_spec(job_id: str, db: Annotated[Session, Depends(get_db)]) -> dic
     return job.screen_spec_json
 
 
+@router.put("/{job_id}/screen-spec", response_model=JobOut)
+def update_screen_spec(
+    job_id: str,
+    screen_spec: ScreenSpecDocument,
+    db: Annotated[Session, Depends(get_db)],
+) -> Job:
+    """검수 화면에서 편집한 화면정의서를 재검증 후 저장한다.
+
+    본문은 ScreenSpecDocument 로 자동 검증되므로 스키마 위반(SCR ID 형식 등)은 422 로 거부된다.
+    요건↔화면 추적성(REQ 참조)은 render 시점에 교차 검증된다.
+    """
+    job = _require_job(db, job_id)
+    if job.screen_spec_json is None:
+        raise HTTPException(status_code=409, detail="화면정의서가 없습니다 (체인 잡이 아님)")
+    job.screen_spec_json = screen_spec.model_dump(mode="json")
+    db.commit()
+    db.refresh(job)
+    return job
+
+
 @router.get("/{job_id}/requirement-spec")
 def get_requirement_spec(job_id: str, db: Annotated[Session, Depends(get_db)]) -> dict:
     """생성된 요구사항정의서 JSON 을 반환한다 (요건 머리 체인 잡)."""
@@ -117,6 +139,26 @@ def get_requirement_spec(job_id: str, db: Annotated[Session, Depends(get_db)]) -
     if job.requirement_spec_json is None:
         raise HTTPException(status_code=409, detail="요구사항정의서가 없습니다 (요건 체인 잡 아님)")
     return job.requirement_spec_json
+
+
+@router.put("/{job_id}/requirement-spec", response_model=JobOut)
+def update_requirement_spec(
+    job_id: str,
+    requirement_spec: RequirementSpecDocument,
+    db: Annotated[Session, Depends(get_db)],
+) -> Job:
+    """검수 화면에서 편집한 요구사항정의서를 재검증 후 저장한다.
+
+    본문은 RequirementSpecDocument 로 자동 검증되므로 스키마 위반(REQ ID 형식·요건 0건 등)은
+    422 로 거부된다. 요건↔시나리오/화면 추적성은 render 시점에 교차 검증된다.
+    """
+    job = _require_job(db, job_id)
+    if job.requirement_spec_json is None:
+        raise HTTPException(status_code=409, detail="요구사항정의서가 없습니다 (요건 체인 잡 아님)")
+    job.requirement_spec_json = requirement_spec.model_dump(mode="json")
+    db.commit()
+    db.refresh(job)
+    return job
 
 
 @router.post("/{job_id}/render", response_model=RenderOut)
