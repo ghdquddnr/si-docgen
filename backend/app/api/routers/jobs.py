@@ -15,6 +15,7 @@ from app.services import job_service
 from app.services.job_service import UnsupportedSourceError
 
 XLSX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+PPTX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
 
 logger = logging.getLogger(__name__)
 
@@ -30,8 +31,14 @@ async def create_job(
     system_name: Annotated[str, Form()] = "시스템",
     author: Annotated[str, Form()] = "작성자",
     written_date: Annotated[str, Form()] = "",
+    with_screens: Annotated[bool, Form()] = False,
+    scenario_model: Annotated[str, Form()] = "",
+    screen_spec_model: Annotated[str, Form()] = "",
 ) -> Job:
-    """원천 문서를 업로드하고 백그라운드 생성 잡을 시작한다."""
+    """원천 문서를 업로드하고 백그라운드 생성 잡을 시작한다.
+
+    with_screens=True 면 화면정의서까지 생성하는 체인을 실행한다. *_model 은 단계별 모델 오버라이드.
+    """
     content = await file.read()
     try:
         job = job_service.create_job(
@@ -42,6 +49,9 @@ async def create_job(
             system_name=system_name,
             author=author,
             written_date=written_date,
+            with_screens=with_screens,
+            scenario_model=scenario_model,
+            screen_spec_model=screen_spec_model,
         )
     except UnsupportedSourceError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -83,24 +93,34 @@ def update_scenario(
     return job
 
 
+@router.get("/{job_id}/screen-spec")
+def get_screen_spec(job_id: str, db: Annotated[Session, Depends(get_db)]) -> dict:
+    """생성된 화면정의서 JSON 을 반환한다 (체인 잡)."""
+    job = _require_job(db, job_id)
+    if job.screen_spec_json is None:
+        raise HTTPException(status_code=409, detail="화면정의서가 없습니다 (체인 잡이 아님)")
+    return job.screen_spec_json
+
+
 @router.post("/{job_id}/render", response_model=RenderOut)
 def render_job(job_id: str, db: Annotated[Session, Depends(get_db)]) -> RenderOut:
-    """검수된 시나리오로 엑셀 2종을 재렌더링한다 (LLM 미사용, 동기 처리)."""
+    """검수된 시나리오(+화면정의서)로 산출물을 재렌더링한다 (LLM 미사용, 동기 처리)."""
     job = _require_job(db, job_id)
     if job.scenario_json is None:
         raise HTTPException(status_code=409, detail="렌더링할 시나리오가 없습니다")
-    result = job_service.render_job_outputs(job_id, job.scenario_json)
+    result = job_service.render_job_outputs(job_id, job.scenario_json, job.screen_spec_json)
     return RenderOut(
         unit_count=result.unit_count,
         integration_count=result.integration_count,
         requirement_count=result.requirement_count,
-        downloads={kind: f"/jobs/{job_id}/download/{kind}" for kind in job_service.OUTPUT_FILES},
+        screen_count=result.screen_count,
+        downloads={kind: f"/jobs/{job_id}/download/{kind}" for kind in result.kinds},
     )
 
 
 @router.get("/{job_id}/download/{kind}")
 def download(job_id: str, kind: str, db: Annotated[Session, Depends(get_db)]) -> FileResponse:
-    """렌더링된 산출물 파일을 다운로드한다 (kind: test_scenario | rtm)."""
+    """렌더링된 산출물 파일을 다운로드한다 (kind: test_scenario | rtm | screen_spec)."""
     _require_job(db, job_id)
     filename = job_service.OUTPUT_FILES.get(kind)
     if filename is None:
@@ -108,7 +128,8 @@ def download(job_id: str, kind: str, db: Annotated[Session, Depends(get_db)]) ->
     path = job_service.output_dir(job_id) / filename
     if not path.is_file():
         raise HTTPException(status_code=409, detail="먼저 렌더링을 수행하세요")
-    return FileResponse(path, filename=filename, media_type=XLSX_MEDIA_TYPE)
+    media_type = PPTX_MEDIA_TYPE if kind == "screen_spec" else XLSX_MEDIA_TYPE
+    return FileResponse(path, filename=filename, media_type=media_type)
 
 
 def _require_job(db: Session, job_id: str) -> Job:

@@ -1,10 +1,12 @@
 """생성 잡 오케스트레이션 — 업로드 파일 저장, 잡 생성, 백그라운드 파이프라인 실행.
 
-생성 단계는 검증된 테스트시나리오 JSON 까지만 만들어 DB 에 저장한다 (렌더링은 검수 후 단계).
+생성 단계는 검증된 JSON(시나리오, 선택적 화면정의서)까지 만들어 DB 에 저장한다 (렌더링은 검수 후).
+with_screens 잡은 체인(시나리오 + 화면정의서)을 실행하고 RTM 에 화면 ID 를 연결한다.
 """
 
 import logging
 import uuid
+from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
@@ -14,11 +16,22 @@ from app.config import get_settings
 from app.db.models import Job, JobStatus
 from app.db.session import SessionLocal
 from app.exceptions import SiDocgenError
+from app.pipelines.generate_chain import SCREEN_SPEC_TEMPLATE
+from app.pipelines.generate_screen_spec import generate_screen_spec
 from app.pipelines.generate_test_scenario import (
-    GenerateResult,
+    RTM_TEMPLATE,
+    TEST_SCENARIO_TEMPLATE,
     generate_scenario,
-    render_scenario_and_rtm,
 )
+from app.renderers.pptx_renderer import render_screen_spec
+from app.renderers.rtm_renderer import render_rtm
+from app.renderers.xlsx_renderer import render_test_scenario
+from app.schemas.rtm import (
+    build_rtm_from_chain,
+    validate_rtm_consistency,
+    validate_screen_consistency,
+)
+from app.schemas.screen_spec import ScreenSpecDocument
 from app.schemas.test_scenario import TestScenarioDocument
 
 logger = logging.getLogger(__name__)
@@ -26,9 +39,27 @@ logger = logging.getLogger(__name__)
 # 원천 문서로 허용하는 확장자 (source_loader 지원 범위와 일치)
 SUPPORTED_SUFFIXES = {".docx", ".pdf", ".md", ".markdown", ".txt"}
 
+# 다운로드 종류 → 산출물 파일명
+OUTPUT_FILES = {
+    "test_scenario": "test_scenario.xlsx",
+    "rtm": "rtm.xlsx",
+    "screen_spec": "screen_spec.pptx",
+}
+
 
 class UnsupportedSourceError(SiDocgenError):
     """업로드된 원천 문서 형식이 지원 범위를 벗어났을 때 발생 (API 에서 400 으로 매핑)."""
+
+
+@dataclass(frozen=True)
+class JobRenderResult:
+    """잡 렌더링 결과 통계와 생성된 산출물 종류."""
+
+    unit_count: int
+    integration_count: int
+    requirement_count: int
+    screen_count: int
+    kinds: list[str]
 
 
 def job_dir(job_id: str) -> Path:
@@ -46,14 +77,37 @@ def output_dir(job_id: str) -> Path:
     return job_dir(job_id) / "output"
 
 
-# 다운로드 종류 → 산출물 파일명
-OUTPUT_FILES = {"test_scenario": "test_scenario.xlsx", "rtm": "rtm.xlsx"}
+def render_job_outputs(
+    job_id: str, scenario_json: dict, screen_spec_json: dict | None = None
+) -> JobRenderResult:
+    """저장된(검수된) JSON 으로 산출물을 렌더링한다 (LLM 미사용).
 
-
-def render_job_outputs(job_id: str, scenario_json: dict) -> GenerateResult:
-    """저장된(검수된) 시나리오 JSON 으로 엑셀 2종을 렌더링한다 (LLM 미사용)."""
+    화면정의서 JSON 이 있으면 RTM 에 화면 ID 를 연결하고 pptx 도 렌더링한다.
+    """
     scenario = TestScenarioDocument.model_validate(scenario_json)
-    return render_scenario_and_rtm(scenario, output_dir(job_id))
+    screen_spec = ScreenSpecDocument.model_validate(screen_spec_json) if screen_spec_json else None
+    if screen_spec is not None:
+        validate_screen_consistency(screen_spec, scenario)
+
+    rtm = build_rtm_from_chain(scenario, screen_spec)
+    validate_rtm_consistency(rtm, scenario)
+
+    out = output_dir(job_id)
+    out.mkdir(parents=True, exist_ok=True)
+    render_test_scenario(scenario, TEST_SCENARIO_TEMPLATE, out / OUTPUT_FILES["test_scenario"])
+    render_rtm(rtm, RTM_TEMPLATE, out / OUTPUT_FILES["rtm"])
+    kinds = ["test_scenario", "rtm"]
+    if screen_spec is not None:
+        render_screen_spec(screen_spec, SCREEN_SPEC_TEMPLATE, out / OUTPUT_FILES["screen_spec"])
+        kinds.append("screen_spec")
+
+    return JobRenderResult(
+        unit_count=len(scenario.unit_test_cases),
+        integration_count=len(scenario.integration_test_cases),
+        requirement_count=len(rtm.rows),
+        screen_count=len(screen_spec.screens) if screen_spec else 0,
+        kinds=kinds,
+    )
 
 
 def create_job(
@@ -65,6 +119,9 @@ def create_job(
     system_name: str,
     author: str,
     written_date: str,
+    with_screens: bool = False,
+    scenario_model: str | None = None,
+    screen_spec_model: str | None = None,
 ) -> Job:
     """업로드 파일을 저장하고 대기 상태 잡을 생성한다."""
     suffix = Path(filename).suffix.lower()
@@ -88,16 +145,23 @@ def create_job(
         system_name=system_name,
         author=author,
         written_date=written_date,
+        with_screens=with_screens,
+        scenario_model=scenario_model or None,
+        screen_spec_model=screen_spec_model or None,
     )
     db.add(job)
     db.commit()
     db.refresh(job)
-    logger.info("잡 생성: id=%s file=%s", job_id, filename)
+    logger.info("잡 생성: id=%s file=%s with_screens=%s", job_id, filename, with_screens)
     return job
 
 
 def run_job(job_id: str) -> None:
-    """백그라운드 실행: 원천 파싱 → LLM 생성 → scenario_json 저장. 자체 DB 세션을 연다."""
+    """백그라운드 실행: 원천 파싱 → LLM 생성 → JSON 저장. 자체 DB 세션을 연다.
+
+    with_screens 잡은 시나리오에 이어 화면정의서까지 생성하고 추적성을 검증한다.
+    진행값(progress): 비체인=parsing/generating, 체인=scenario/screens.
+    """
     with SessionLocal() as db:
         job = db.get(Job, job_id)
         if job is None:
@@ -107,20 +171,38 @@ def run_job(job_id: str) -> None:
         job.progress = "queued"
         db.commit()
 
-        def report(stage: str) -> None:
+        def set_progress(stage: str) -> None:
             job.progress = stage
             db.commit()
 
         try:
-            scenario = generate_scenario(
-                source_path(job_id, job.input_filename),
-                project_name=job.project_name,
-                system_name=job.system_name,
-                author=job.author,
-                written_date=job.written_date or "",
-                on_progress=report,
-            )
-            job.scenario_json = scenario.model_dump(mode="json")
+            src = source_path(job_id, job.input_filename)
+            cover = {
+                "project_name": job.project_name,
+                "system_name": job.system_name,
+                "author": job.author,
+                "written_date": job.written_date or "",
+            }
+
+            if job.with_screens:
+                set_progress("scenario")
+                scenario = generate_scenario(src, **cover, model=job.scenario_model)
+                job.scenario_json = scenario.model_dump(mode="json")
+                db.commit()
+
+                set_progress("screens")
+                req_ids = sorted(
+                    {c.req_id for c in scenario.unit_test_cases + scenario.integration_test_cases}
+                )
+                screen_spec = generate_screen_spec(
+                    src, **cover, req_ids=req_ids, model=job.screen_spec_model
+                )
+                validate_screen_consistency(screen_spec, scenario)
+                job.screen_spec_json = screen_spec.model_dump(mode="json")
+            else:
+                scenario = generate_scenario(src, **cover, on_progress=set_progress)
+                job.scenario_json = scenario.model_dump(mode="json")
+
             job.status = JobStatus.SUCCEEDED
             job.progress = "done"
             job.error = None

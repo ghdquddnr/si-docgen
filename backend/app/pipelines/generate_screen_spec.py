@@ -25,12 +25,13 @@ def generate_screen_spec(
     author: str,
     written_date: str,
     req_ids: list[str],
+    model: str | None = None,
     on_progress: Callable[[str], None] | None = None,
 ) -> ScreenSpecDocument:
     """원천 문서에서 검증된 화면정의서(JSON 모델)를 생성한다.
 
     req_ids 는 화면이 참조할 수 있는 요건 ID 집합(보통 테스트시나리오의 요건 ID)을 전달해
-    화면↔요건 추적성을 유도한다.
+    화면↔요건 추적성을 유도한다. model 이 주어지면 그 모델을, 없으면 설정의 screen_spec_model.
     """
     if on_progress is not None:
         on_progress("parsing")
@@ -53,7 +54,7 @@ def generate_screen_spec(
         prompt,
         ScreenSpecDocument,
         system=SCREEN_SPEC_SYSTEM,
-        model=get_settings().screen_spec_model,
+        model=model or get_settings().screen_spec_model,
     )
     logger.info("화면정의서 생성 완료: 화면 %d개", len(screen_spec.screens))
     return screen_spec

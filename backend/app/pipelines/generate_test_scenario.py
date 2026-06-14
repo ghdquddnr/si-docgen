@@ -45,12 +45,14 @@ def generate_scenario(
     system_name: str,
     author: str,
     written_date: str,
+    model: str | None = None,
     on_progress: Callable[[str], None] | None = None,
 ) -> TestScenarioDocument:
     """원천 문서 1건에서 검증된 테스트시나리오(JSON 모델)를 생성한다 (렌더링 제외).
 
     웹 흐름에서는 이 결과를 저장해 사람이 검수한 뒤 render_scenario_and_rtm 으로 렌더링한다.
     표지 정보(project_name 등)는 원천 문서에서 안정적으로 추출하기 어려워 인자로 받는다.
+    model 이 주어지면 그 모델을, 없으면 설정의 scenario_model(또는 기본 모델)을 쓴다.
     on_progress 가 주어지면 단계 전환 시 단계명(parsing/generating)을 통지한다 (SSE 진행 표시용).
     """
 
@@ -76,7 +78,7 @@ def generate_scenario(
         prompt,
         TestScenarioDocument,
         system=TEST_SCENARIO_SYSTEM,
-        model=get_settings().scenario_model,
+        model=model or get_settings().scenario_model,
     )
     logger.info(
         "테스트시나리오 생성 완료: 단위 %d건 + 통합 %d건",

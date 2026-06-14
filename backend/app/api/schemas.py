@@ -22,6 +22,7 @@ class JobOut(BaseModel):
     system_name: str
     author: str
     written_date: str
+    with_screens: bool
     error: str | None
     created_at: datetime
 
@@ -32,4 +33,5 @@ class RenderOut(BaseModel):
     unit_count: int
     integration_count: int
     requirement_count: int
+    screen_count: int
     downloads: dict[str, str]  # kind -> 다운로드 경로

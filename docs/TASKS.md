@@ -11,8 +11,8 @@
 
 ## 현재 상태
 
-- **현재 Phase**: Phase 3 **완료** (P3-1~5, 2026-06-14 검수 합격) → 다음 Phase 4 또는 백로그
-- **진행 중 태스크**: 없음 (다음: 사용자와 방향 확정 — Phase 4 / 목업 체인 통합 / 웹 다중 산출물 등)
+- **현재 Phase**: Phase 4 — React Flow 실행형 캔버스 (착수)
+- **진행 중 태스크**: P4-1 — 웹 잡 체인 확장(백엔드)
 - **차단 사항**: 없음.
 
 ---
@@ -232,9 +232,41 @@ RTM 이 REQ→SCR→TC 추적성을 연결·검증한다. 빠진 고리였던 **
 
 ---
 
-## Phase 4 — 개요만 유지 (착수 전 분해 금지)
+## Phase 4 — React Flow 실행형 캔버스
 
-- **Phase 4**: React Flow 노드 캔버스 UI
+**Phase 목표**: 역할별 노드(원천 → 시나리오/화면 → RTM)를 캔버스로 보여주고, 노드별 모델 선택 +
+실행 + SSE 라이브 상태 + 결과 노드에서 검수·다운로드까지 하는 실행형 캔버스를 만든다.
+
+> **착수 결정사항 (2026-06-14 사용자 확정)**: 실행형 캔버스. 웹 잡에 화면정의서 생성 추가가 선행.
+> 신규 의존성(프론트): `@xyflow/react`.
+
+### P4-1. 웹 잡 체인 확장 (백엔드)
+- [x] 생성 함수(`generate_scenario`/`generate_screen_spec`)에 잡 단위 `model` 오버라이드 인자 추가
+- [x] `Job` 에 `with_screens`(bool), `screen_spec_json`(JSON), `scenario_model`/`screen_spec_model`(str?) 컬럼 + 마이그레이션
+- [x] `run_job` 체인 분기(with_screens 시 화면정의서도 생성·저장, 단계별 모델 적용), `POST /jobs` 폼 필드 추가
+- [x] 렌더링·다운로드에 화면정의서(pptx) 추가(`render_job_outputs` 확장, download kind `screen_spec`)
+- **AC**: LLM 모킹 e2e — with_screens 업로드 → 시나리오+화면 JSON 저장 → 렌더 → pptx 다운로드.
+- 메모: `generate_scenario/screen_spec(model=...)` 우선순위 = 인자 > 설정. `with_screens` 는 NOT NULL 이라 **server_default=false() 필요**(SQLite 가 기존 행에 NOT NULL 컬럼 추가 시 default 없으면 실패). 진행값: 비체인=parsing/generating(P2 프론트 호환), 체인=scenario/screens(캔버스용). `render_job_outputs(scenario_json, screen_spec_json=None)` → 화면 있으면 `build_rtm_from_chain` 으로 RTM screen_ids 채우고 pptx 렌더. download kind `screen_spec`(pptx media type). `GET /jobs/{id}/screen-spec` 추가, `JobOut.with_screens`/`RenderOut.screen_count` 추가. e2e 4건(시나리오+화면 저장/화면조회/렌더·pptx다운로드·RTM 연결/비체인 409), 총 160건.
+
+### P4-2. 캔버스 골격
+- [ ] `@xyflow/react` 도입 + `/canvas` 라우트 + 고정 파이프라인 노드(원천/시나리오/화면/RTM) 레이아웃·엣지
+- **AC**: 캔버스가 렌더되고 노드/연결선이 표시됨. lint/build 통과.
+- 메모:
+
+### P4-3. 캔버스 실행
+- [ ] 원천 업로드 노드 + LLM 노드별 모델 선택 + 실행 버튼(잡 생성 with_screens)
+- **AC**: 캔버스에서 업로드·실행 → 잡 생성됨.
+- 메모:
+
+### P4-4. 라이브 상태 + 결과 연결
+- [ ] SSE 로 노드별 진행/완료 표시, 결과 노드 → 검수 화면·다운로드 링크
+- **AC**: 실행 시 노드 상태가 갱신되고 완료 후 검수/다운로드 가능.
+- 메모:
+
+### P4-5. Phase 4 품질 검수 (사람 게이트)
+- [ ] 캔버스로 업로드~다운로드 전 과정 수행 판정.
+- **AC**: 전 흐름 합격 판정, 개선 항목 환원.
+- 메모:
 
 ---
 

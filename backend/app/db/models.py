@@ -7,7 +7,7 @@ status 등 열거형은 native_enum=False 로 VARCHAR 저장 → PostgreSQL/MySQ
 from datetime import datetime
 from enum import StrEnum
 
-from sqlalchemy import JSON, DateTime, String, Text, func
+from sqlalchemy import JSON, Boolean, DateTime, String, Text, false, func
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -41,6 +41,12 @@ class Job(Base):
     written_date: Mapped[str] = mapped_column(String(10), default="")
     # 생성/검수된 테스트시나리오 JSON (검증 통과본). 미생성이면 null
     scenario_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # 체인 실행 여부(화면정의서까지 생성) 및 생성된 화면정의서 JSON
+    with_screens: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    screen_spec_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # 단계별 모델 오버라이드(잡 단위). 미지정이면 설정/기본 모델
+    scenario_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    screen_spec_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
     # 실패 시 사람이 읽을 오류 메시지
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
