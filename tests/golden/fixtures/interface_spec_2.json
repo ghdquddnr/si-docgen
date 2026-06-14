@@ -1,0 +1,46 @@
+{
+  "project_name": "차세대 통합 업무시스템 구축",
+  "system_name": "통합 업무포털",
+  "author": "홍길동",
+  "written_date": "2026-06-14",
+  "interfaces": [
+    {
+      "interface_id": "IF-001",
+      "name": "사용자 정보 연계",
+      "send_system": "인사시스템",
+      "recv_system": "통합 업무포털",
+      "method": "REST API",
+      "cycle": "실시간",
+      "fields": [
+        {
+          "name": "사용자 ID",
+          "data_type": "String(20)",
+          "required": true,
+          "description": "사번"
+        },
+        {
+          "name": "부서 코드",
+          "data_type": "String(10)",
+          "required": true,
+          "description": "소속 부서"
+        }
+      ]
+    },
+    {
+      "interface_id": "IF-002",
+      "name": "결재 결과 송신",
+      "send_system": "통합 업무포털",
+      "recv_system": "회계시스템",
+      "method": "MQ",
+      "cycle": "일 1회 배치",
+      "fields": [
+        {
+          "name": "문서 번호",
+          "data_type": "String(30)",
+          "required": true,
+          "description": "기안 문서 번호"
+        }
+      ]
+    }
+  ]
+}

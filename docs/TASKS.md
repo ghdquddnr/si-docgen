@@ -11,8 +11,8 @@
 
 ## 현재 상태
 
-- **현재 Phase**: 로드맵(Phase 0~4) 완료. **백로그 — B1·B2·B3 완료, B4(테이블정의서) 렌더러~LLM~CLI~웹 완료**.
-- **진행 중 태스크**: 없음 (B4-1~B4-4 완료. 다음: 웹 라이브 사람 검수 또는 인터페이스정의서).
+- **현재 Phase**: 로드맵(Phase 0~4) 완료. **백로그 — B1~B4 완료, B5(인터페이스정의서) 렌더러 PoC 완료**.
+- **진행 중 태스크**: 없음 (B5-1 렌더러 PoC 완료. 다음: 양식 사람 검수 → 합격 시 LLM/CLI/웹).
 - **차단 사항**: 없음.
 
 ---
@@ -358,6 +358,15 @@ RTM 이 REQ→SCR→TC 추적성을 연결·검증한다. 빠진 고리였던 **
 - [x] **프론트(B4-4b)**: `api.ts`(withTableSpec/tableSpecModel). 캔버스에 **테이블정의서 노드 추가**(source→테이블정의서 독립, 7노드), STAGES 에 table_spec 추가, `withTableSpec:true` 로 실행. 다운로드 라벨 추가(검수·캔버스).
 - **AC**: lint/build 통과, 캔버스 7노드 렌더. 메모: 프리뷰 DOM 검증 — 7노드(source/요구사항/시나리오/화면/WBS/테이블정의서/RTM)·노드 모델 select 확인, 콘솔 에러 없음. **라이브 6종 생성 판정은 사람 게이트(후속)**.
 
+## 백로그 작업: 신규 산출물 — 인터페이스정의서
+
+**목표**: WBS·테이블정의서와 동일 흐름(렌더러 PoC → LLM → CLI → 웹). 목록형(인터페이스별 메시지 항목을 행으로 펼침).
+
+### B5-1. 인터페이스정의서 렌더러 PoC
+- [x] `schemas/interface_spec.py`(Interface/MessageField, IF ID 형식·유일성), `renderers/interface_spec_renderer.py`, `templates/interface_spec.xlsx`(+ build 스크립트), 골든/경계 테스트.
+- **AC**: 하드코딩 JSON 으로 양식 충실 + 인터페이스별 항목 펼침·번호 리셋·연계방식/주기/필수 표기 골든 검증 + 스키마 경계값.
+- 메모: **목록형** 11열(No./I/F ID/인터페이스명/송신·수신 시스템/연계 방식/주기/항목명/타입/필수/설명), STYLE_ROW=9, table_spec 와 동일 레이아웃. 인터페이스 메타는 항목마다 반복, 번호는 인터페이스 내 1부터. 필수→Y/N. 검증: IF ID 형식(IF-\\d{3,})·문서 전체 유일·항목명 인터페이스 내 유일. 골든 8 + 경계 6 = 14건(총 240건). 샘플 `out/interface_spec_sample.xlsx`(gitignore). **양식 시각 합격 판정은 사람 게이트(다음)**. 합격 시 LLM·CLI·웹.
+
 ## 백로그 (Phase 미배정)
 
 - [x] ~~화면정의서 목업 이미지(HTML→PNG)~~ → **편집 가능한 PPT 도형 목업**으로 구현(2026-06-14). `pptx_renderer._draw_mockup`(번호 배지·라벨·유형별 컨트롤), HTML/Playwright/pillow 의존 제거. 골든 테스트 `tests/golden/test_pptx_mockup.py`.
@@ -369,7 +378,7 @@ RTM 이 REQ→SCR→TC 추적성을 연결·검증한다. 빠진 고리였던 **
 - [ ] HWP(hwpx) 출력 지원 검토
 - [x] WBS 산출물 — 위 'B3' 섹션(렌더러 PoC·LLM·CLI·웹 완료, 라이브 사람 게이트만 후속)
 - [x] 테이블정의서 — 위 'B4' 섹션(렌더러·LLM·CLI·웹 완료, 라이브 사람 게이트만 후속)
-- [ ] 인터페이스정의서 산출물 추가
+- [~] 인터페이스정의서 — 위 'B5' 섹션(렌더러 PoC 완료)
 
 ---
 
