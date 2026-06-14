@@ -214,10 +214,10 @@ RTM 이 REQ→SCR→TC 추적성을 연결·검증한다. 빠진 고리였던 **
 - 메모: `build_rtm_from_chain(scenario, screen_spec=None)` 신설(기존 `build_rtm_from_scenario` 는 이것의 단축형). req→screen_ids 는 화면 순서 유지·중복 제거로 채움, **화면 있는 요건은 stage_reflection.design=True** 로 승격. `validate_screen_consistency` 는 화면 req_ids ⊆ 시나리오 요건(없는 REQ 참조 시 ValidationFailedError). RTM screen_ids ⊆ SCR 집합은 구성상 자동 보장. 테스트 4건(연결/빈칸/정합성/거부), 총 151건.
 
 ### P3-3. CLI 체인 오케스트레이션
-- [ ] `generate_test_scenario_and_rtm` 확장 또는 신규 체인 함수: source → 테스트시나리오 + 화면정의서 → RTM(screen_ids 채움) → xlsx 2종 + pptx 렌더링 (목업은 옵션)
-- [ ] CLI `si-docgen generate` 에 화면정의서 산출 추가(또는 `--with-screens`)
+- [x] 신규 체인 함수 `pipelines/generate_chain.py::generate_chain`: source → 테스트시나리오 + 화면정의서 → RTM(screen_ids 채움) → xlsx 2종 + pptx 렌더링 (목업은 옵션/미생성)
+- [x] CLI `si-docgen generate --with-screens`
 - **AC**: LLM 모킹 e2e — 입력 → test_scenario.xlsx + rtm.xlsx(screen_ids 채워짐) + screen_spec.pptx 출력.
-- 메모:
+- 메모: `generate_chain` 이 두 LLM 호출(시나리오/화면) 격리, 사이에 `validate_screen_consistency` + `validate_rtm_consistency` 로 REQ→SCR→TC 검증. 목업(HTML→PNG, Playwright)은 브라우저 의존이라 **기본 미생성**(`render_screen_spec(mockup_images=None)`) — 옵션은 후속. `--with-screens` 없으면 기존 2종 흐름 유지(하위 호환). e2e 3건: 3종 생성·pptx 열림 / RTM 화면 ID 연결(REQ-001→SCR-001, REQ-002→SCR-002) / CLI 종료코드. 모킹 테스트가 실제 pptx 렌더까지 수행. 실제 LLM 체인은 P3-5 게이트. 총 154건.
 
 ### P3-4. 로컬/상용 모델 전환
 - [ ] 단계별 모델 오버라이드 설정(예: `screen_spec_model`) — 미지정 시 기본 모델. LiteLLM 추상화 활용

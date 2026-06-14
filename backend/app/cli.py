@@ -14,6 +14,7 @@ from pathlib import Path
 
 from app.config import get_settings
 from app.exceptions import SiDocgenError
+from app.pipelines.generate_chain import ChainResult, generate_chain
 from app.pipelines.generate_test_scenario import generate_test_scenario_and_rtm
 
 logger = logging.getLogger("si_docgen")
@@ -37,6 +38,11 @@ def _build_parser() -> argparse.ArgumentParser:
     gen.add_argument(
         "--date", default=date.today().isoformat(), help="표지 작성일 (YYYY-MM-DD, 기본: 오늘)"
     )
+    gen.add_argument(
+        "--with-screens",
+        action="store_true",
+        help="화면정의서(pptx)도 함께 생성하고 RTM 에 화면 ID 를 연결 (체인)",
+    )
     gen.add_argument("--verbose", action="store_true", help="DEBUG 로그 출력 (프롬프트 본문 포함)")
     return parser
 
@@ -48,15 +54,17 @@ def _run_generate(args: argparse.Namespace) -> int:
         get_settings.cache_clear()
     logger.info("사용 모델: %s", get_settings().llm_model)
 
+    cover = {
+        "project_name": args.project_name,
+        "system_name": args.system_name,
+        "author": args.author,
+        "written_date": args.date,
+    }
     try:
-        result = generate_test_scenario_and_rtm(
-            args.input,
-            args.output,
-            project_name=args.project_name,
-            system_name=args.system_name,
-            author=args.author,
-            written_date=args.date,
-        )
+        if args.with_screens:
+            result = generate_chain(args.input, args.output, **cover)
+        else:
+            result = generate_test_scenario_and_rtm(args.input, args.output, **cover)
     except SiDocgenError as exc:
         logger.error("생성 실패: %s", exc)
         return 1
@@ -64,9 +72,12 @@ def _run_generate(args: argparse.Namespace) -> int:
     print("\n생성 완료:")
     print(f"  테스트시나리오: {result.test_scenario_path}")
     print(f"  요건추적표(RTM): {result.rtm_path}")
+    if isinstance(result, ChainResult):
+        print(f"  화면정의서: {result.screen_spec_path}")
+    screen_part = f" / 화면 {result.screen_count}개" if isinstance(result, ChainResult) else ""
     print(
         f"  통계: 요건 {result.requirement_count}건 / "
-        f"단위 {result.unit_count}건 + 통합 {result.integration_count}건"
+        f"단위 {result.unit_count}건 + 통합 {result.integration_count}건{screen_part}"
     )
     return 0
 
