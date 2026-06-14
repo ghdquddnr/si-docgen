@@ -1,6 +1,26 @@
 "use client";
 
 import type { Screen, ScreenField, ScreenSpec } from "@/lib/api";
+import { nextNumberedId } from "@/lib/review";
+
+function newField(existing: ScreenField[]): ScreenField {
+  const nextNo = Math.min(20, existing.reduce((m, f) => Math.max(m, f.no), 0) + 1);
+  return { no: nextNo, name: "항목", field_type: "텍스트박스", required: false, description: "" };
+}
+
+function newScreen(existing: Screen[]): Screen {
+  return {
+    screen_id: nextNumberedId(
+      existing.map((s) => s.screen_id),
+      "SCR-",
+    ),
+    screen_name: "신규 화면",
+    menu_path: "홈",
+    req_ids: [],
+    fields: [newField([])],
+    logic: [],
+  };
+}
 
 const cell =
   "w-full rounded border border-transparent bg-transparent px-1.5 py-1 hover:border-slate-200 focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100";
@@ -26,6 +46,27 @@ export function ScreenEditor({
     updateScreen(si, "fields", fields);
   }
 
+  function addScreen() {
+    onChange({ ...spec, screens: [...spec.screens, newScreen(spec.screens)] });
+  }
+
+  function deleteScreen(si: number) {
+    onChange({ ...spec, screens: spec.screens.filter((_, i) => i !== si) });
+  }
+
+  function addField(si: number) {
+    const fields = spec.screens[si].fields;
+    updateScreen(si, "fields", [...fields, newField(fields)]);
+  }
+
+  function deleteField(si: number, fi: number) {
+    updateScreen(
+      si,
+      "fields",
+      spec.screens[si].fields.filter((_, i) => i !== fi),
+    );
+  }
+
   return (
     <section className="flex flex-col gap-5">
       {spec.screens.map((screen, si) => (
@@ -42,6 +83,14 @@ export function ScreenEditor({
               placeholder="화면명"
               className={`w-56 font-semibold ${boxed}`}
             />
+            <button
+              onClick={() => deleteScreen(si)}
+              disabled={spec.screens.length <= 1}
+              title="화면 삭제"
+              className="ml-auto rounded px-2 py-1 text-xs text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-30"
+            >
+              화면 삭제 ✕
+            </button>
           </div>
 
           <div className="flex flex-wrap gap-x-6 gap-y-2 text-xs">
@@ -81,6 +130,7 @@ export function ScreenEditor({
                   <th className="border-b border-slate-200 px-2 py-1.5 font-medium">유형</th>
                   <th className="border-b border-slate-200 px-2 py-1.5 font-medium">필수</th>
                   <th className="border-b border-slate-200 px-2 py-1.5 font-medium">설명</th>
+                  <th className="border-b border-slate-200 px-2 py-1.5" />
                 </tr>
               </thead>
               <tbody>
@@ -125,10 +175,26 @@ export function ScreenEditor({
                         className={`w-56 ${cell}`}
                       />
                     </td>
+                    <td className="border-b border-slate-100 px-2 py-1 text-center">
+                      <button
+                        onClick={() => deleteField(si, fi)}
+                        disabled={screen.fields.length <= 1}
+                        title="항목 삭제"
+                        className="rounded px-1.5 py-0.5 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-30"
+                      >
+                        ✕
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            <button
+              onClick={() => addField(si)}
+              className="mt-2 w-fit rounded-md border border-dashed border-slate-300 px-3 py-1 text-xs font-medium text-slate-500 hover:border-indigo-400 hover:text-indigo-600"
+            >
+              + 항목 추가
+            </button>
           </div>
 
           <label className="flex flex-col gap-1 text-xs">
@@ -148,6 +214,13 @@ export function ScreenEditor({
           </label>
         </div>
       ))}
+
+      <button
+        onClick={addScreen}
+        className="w-fit rounded-md border border-dashed border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-500 hover:border-indigo-400 hover:text-indigo-600"
+      >
+        + 화면 추가
+      </button>
     </section>
   );
 }

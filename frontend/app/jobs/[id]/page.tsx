@@ -24,6 +24,7 @@ import {
 } from "@/lib/api";
 import { RequirementEditor } from "@/components/review/RequirementEditor";
 import { ScreenEditor } from "@/components/review/ScreenEditor";
+import { nextNumberedId } from "@/lib/review";
 
 type TabKey = "requirement" | "scenario" | "screen";
 
@@ -72,6 +73,37 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
       const cases = [...prev[list]];
       cases[index] = { ...cases[index], [field]: value };
       return { ...prev, [list]: cases };
+    });
+    setRender(null);
+    setSaveMsg(null);
+  }
+
+  function addCase(list: CaseListKey) {
+    setScenario((prev) => {
+      if (!prev) return prev;
+      const allIds = [...prev.unit_test_cases, ...prev.integration_test_cases].map((c) => c.tc_id);
+      const newCase: TestCase = {
+        tc_id: nextNumberedId(allIds, "TC-"),
+        req_id: "REQ-001",
+        category_major: "분류",
+        category_minor: "세부",
+        scenario_name: "신규 시나리오",
+        precondition: "",
+        test_steps: ["단계"],
+        expected_result: "기대 결과",
+        result: null,
+        note: "",
+      };
+      return { ...prev, [list]: [...prev[list], newCase] };
+    });
+    setRender(null);
+    setSaveMsg(null);
+  }
+
+  function deleteCase(list: CaseListKey, index: number) {
+    setScenario((prev) => {
+      if (!prev) return prev;
+      return { ...prev, [list]: prev[list].filter((_, i) => i !== index) };
     });
     setRender(null);
     setSaveMsg(null);
@@ -192,11 +224,15 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
             title="단위 테스트"
             cases={scenario.unit_test_cases}
             onChange={(i, f, v) => updateCase("unit_test_cases", i, f, v)}
+            onAdd={() => addCase("unit_test_cases")}
+            onDelete={(i) => deleteCase("unit_test_cases", i)}
           />
           <CaseTable
             title="통합 테스트"
             cases={scenario.integration_test_cases}
             onChange={(i, f, v) => updateCase("integration_test_cases", i, f, v)}
+            onAdd={() => addCase("integration_test_cases")}
+            onDelete={(i) => deleteCase("integration_test_cases", i)}
           />
         </div>
       )}
@@ -277,10 +313,14 @@ function CaseTable({
   title,
   cases,
   onChange,
+  onAdd,
+  onDelete,
 }: {
   title: string;
   cases: TestCase[];
   onChange: (index: number, field: keyof TestCase, value: unknown) => void;
+  onAdd: () => void;
+  onDelete: (index: number) => void;
 }) {
   return (
     <section className="flex flex-col gap-2.5">
@@ -291,7 +331,7 @@ function CaseTable({
         </span>
       </h2>
       {cases.length === 0 ? (
-        <p className="card p-6 text-center text-sm text-slate-400">케이스 없음</p>
+        <p className="card p-5 text-center text-sm text-slate-400">케이스 없음</p>
       ) : (
         <div className="card overflow-x-auto">
           <table className="min-w-full border-collapse text-xs">
@@ -303,6 +343,7 @@ function CaseTable({
                   </th>
                 ))}
                 <th className="border-b border-slate-200 px-3 py-2 font-medium">테스트 절차</th>
+                <th className="border-b border-slate-200 px-2 py-2" />
               </tr>
             </thead>
             <tbody>
@@ -331,12 +372,27 @@ function CaseTable({
                       className="w-72 rounded border border-transparent bg-transparent px-1.5 py-1 hover:border-slate-200 focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100"
                     />
                   </td>
+                  <td className="border-b border-slate-100 px-2 py-1.5 text-center">
+                    <button
+                      onClick={() => onDelete(i)}
+                      title="케이스 삭제"
+                      className="rounded px-1.5 py-0.5 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                    >
+                      ✕
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
+      <button
+        onClick={onAdd}
+        className="w-fit rounded-md border border-dashed border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-500 hover:border-indigo-400 hover:text-indigo-600"
+      >
+        + 케이스 추가
+      </button>
     </section>
   );
 }

@@ -1,9 +1,24 @@
 "use client";
 
 import type { Priority, Requirement, RequirementSpec } from "@/lib/api";
+import { nextNumberedId } from "@/lib/review";
 
 const PRIORITIES: Priority[] = ["상", "중", "하"];
 const CATEGORY_OPTIONS = ["기능", "비기능", "인터페이스", "보안"];
+
+function newRequirement(existing: Requirement[]): Requirement {
+  return {
+    req_id: nextNumberedId(
+      existing.map((r) => r.req_id),
+      "REQ-",
+    ),
+    name: "신규 요건",
+    category: "기능",
+    priority: "중",
+    description: "요건 상세 설명",
+    note: "",
+  };
+}
 
 const cell =
   "w-full rounded border border-transparent bg-transparent px-1.5 py-1 hover:border-slate-200 focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100";
@@ -19,6 +34,14 @@ export function RequirementEditor({
     const requirements = [...spec.requirements];
     requirements[index] = { ...requirements[index], [field]: value };
     onChange({ ...spec, requirements });
+  }
+
+  function addReq() {
+    onChange({ ...spec, requirements: [...spec.requirements, newRequirement(spec.requirements)] });
+  }
+
+  function deleteReq(index: number) {
+    onChange({ ...spec, requirements: spec.requirements.filter((_, i) => i !== index) });
   }
 
   return (
@@ -50,6 +73,7 @@ export function RequirementEditor({
               <th className="border-b border-slate-200 px-3 py-2 font-medium">중요도</th>
               <th className="border-b border-slate-200 px-3 py-2 font-medium">상세 설명</th>
               <th className="border-b border-slate-200 px-3 py-2 font-medium">비고</th>
+              <th className="border-b border-slate-200 px-2 py-2" />
             </tr>
           </thead>
           <tbody>
@@ -105,11 +129,28 @@ export function RequirementEditor({
                     className={`w-32 ${cell}`}
                   />
                 </td>
+                <td className="border-b border-slate-100 px-2 py-1.5 text-center">
+                  <button
+                    onClick={() => deleteReq(i)}
+                    disabled={spec.requirements.length <= 1}
+                    title="요건 삭제"
+                    className="rounded px-1.5 py-0.5 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-30"
+                  >
+                    ✕
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      <button
+        onClick={addReq}
+        className="w-fit rounded-md border border-dashed border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-500 hover:border-indigo-400 hover:text-indigo-600"
+      >
+        + 요건 추가
+      </button>
     </section>
   );
 }
