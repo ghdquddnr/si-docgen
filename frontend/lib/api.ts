@@ -66,6 +66,59 @@ export interface Scenario {
 
 export type CaseListKey = "unit_test_cases" | "integration_test_cases";
 
+export type Priority = "상" | "중" | "하";
+
+export interface Revision {
+  version: string;
+  revised_date: string;
+  author: string;
+  description: string;
+}
+
+export interface Requirement {
+  req_id: string;
+  name: string;
+  category: string;
+  priority: Priority;
+  description: string;
+  note: string;
+}
+
+export interface RequirementSpec {
+  project_name: string;
+  system_name: string;
+  doc_no: string;
+  author: string;
+  written_date: string;
+  revisions: Revision[];
+  requirements: Requirement[];
+}
+
+export interface ScreenField {
+  no: number;
+  name: string;
+  field_type: string;
+  required: boolean;
+  description: string;
+}
+
+export interface Screen {
+  screen_id: string;
+  screen_name: string;
+  menu_path: string;
+  req_ids: string[];
+  fields: ScreenField[];
+  logic: string[];
+}
+
+export interface ScreenSpec {
+  project_name: string;
+  system_name: string;
+  author: string;
+  written_date: string;
+  screens: Screen[];
+}
+
 // SSE 진행 이벤트 페이로드
 export interface ProgressEvent {
   status: JobStatus;
@@ -131,6 +184,34 @@ export async function putScenario(id: string, scenario: Scenario): Promise<Job> 
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(scenario),
+    }),
+  );
+}
+
+export async function getRequirementSpec(id: string): Promise<RequirementSpec> {
+  return parse<RequirementSpec>(await fetch(`${API_BASE}/jobs/${id}/requirement-spec`));
+}
+
+export async function putRequirementSpec(id: string, spec: RequirementSpec): Promise<Job> {
+  return parse<Job>(
+    await fetch(`${API_BASE}/jobs/${id}/requirement-spec`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(spec),
+    }),
+  );
+}
+
+export async function getScreenSpec(id: string): Promise<ScreenSpec> {
+  return parse<ScreenSpec>(await fetch(`${API_BASE}/jobs/${id}/screen-spec`));
+}
+
+export async function putScreenSpec(id: string, spec: ScreenSpec): Promise<Job> {
+  return parse<Job>(
+    await fetch(`${API_BASE}/jobs/${id}/screen-spec`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(spec),
     }),
   );
 }

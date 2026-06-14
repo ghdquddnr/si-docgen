@@ -6,18 +6,34 @@ import { use, useEffect, useState } from "react";
 import {
   ApiError,
   downloadUrl,
+  getJob,
+  getRequirementSpec,
   getScenario,
+  getScreenSpec,
+  putRequirementSpec,
   putScenario,
+  putScreenSpec,
   renderJob,
   type CaseListKey,
+  type Job,
   type RenderResult,
+  type RequirementSpec,
   type Scenario,
+  type ScreenSpec,
   type TestCase,
 } from "@/lib/api";
+import { RequirementEditor } from "@/components/review/RequirementEditor";
+import { ScreenEditor } from "@/components/review/ScreenEditor";
+
+type TabKey = "requirement" | "scenario" | "screen";
 
 export default function ReviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const [job, setJob] = useState<Job | null>(null);
+  const [requirementSpec, setRequirementSpec] = useState<RequirementSpec | null>(null);
   const [scenario, setScenario] = useState<Scenario | null>(null);
+  const [screenSpec, setScreenSpec] = useState<ScreenSpec | null>(null);
+  const [tab, setTab] = useState<TabKey>("scenario");
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
@@ -26,12 +42,29 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
   const [render, setRender] = useState<RenderResult | null>(null);
 
   useEffect(() => {
-    getScenario(id)
-      .then(setScenario)
-      .catch((e) =>
-        setLoadError(e instanceof ApiError ? e.message : "시나리오를 불러오지 못했습니다."),
-      );
+    (async () => {
+      try {
+        const j = await getJob(id);
+        setJob(j);
+        await Promise.all([
+          getScenario(id).then(setScenario),
+          j.with_requirements ? getRequirementSpec(id).then(setRequirementSpec) : null,
+          j.with_screens || j.with_requirements ? getScreenSpec(id).then(setScreenSpec) : null,
+        ]);
+        if (j.with_requirements) setTab("requirement");
+      } catch (e) {
+        setLoadError(e instanceof ApiError ? e.message : "검수 데이터를 불러오지 못했습니다.");
+      }
+    })();
   }, [id]);
+
+  function edited<T>(setter: (v: T) => void) {
+    return (v: T) => {
+      setter(v);
+      setRender(null);
+      setSaveMsg(null);
+    };
+  }
 
   function updateCase(list: CaseListKey, index: number, field: keyof TestCase, value: unknown) {
     setScenario((prev) => {
@@ -44,13 +77,19 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
     setSaveMsg(null);
   }
 
+  // 화면에 로드된(존재하는) 산출물을 모두 재검증·저장한다
+  async function saveAll() {
+    if (requirementSpec) await putRequirementSpec(id, requirementSpec);
+    if (scenario) await putScenario(id, scenario);
+    if (screenSpec) await putScreenSpec(id, screenSpec);
+  }
+
   async function handleSave() {
-    if (!scenario) return;
     setBusy(true);
     setSaveMsg(null);
     setSaveErr(null);
     try {
-      await putScenario(id, scenario);
+      await saveAll();
       setSaveMsg("검수 내용을 저장했습니다.");
     } catch (e) {
       setSaveErr(e instanceof ApiError ? `검증 실패: ${e.message}` : "저장에 실패했습니다.");
@@ -60,12 +99,11 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
   }
 
   async function handleRender() {
-    if (!scenario) return;
     setBusy(true);
     setSaveErr(null);
     setSaveMsg(null);
     try {
-      await putScenario(id, scenario);
+      await saveAll();
       setRender(await renderJob(id));
       setSaveMsg("렌더링이 완료되었습니다. 아래에서 다운로드하세요.");
     } catch (e) {
@@ -85,16 +123,20 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
       </Centered>
     );
   }
-  if (!scenario) {
+  if (!scenario || !job) {
     return (
       <Centered>
         <span className="h-2 w-2 animate-pulse rounded-full bg-indigo-600" />
-        <p className="text-sm text-slate-500">시나리오를 불러오는 중…</p>
+        <p className="text-sm text-slate-500">검수 데이터를 불러오는 중…</p>
       </Centered>
     );
   }
 
-  const total = scenario.unit_test_cases.length + scenario.integration_test_cases.length;
+  const tabs: { key: TabKey; label: string }[] = [
+    requirementSpec ? { key: "requirement" as const, label: "요구사항정의서" } : null,
+    { key: "scenario" as const, label: "테스트시나리오" },
+    screenSpec ? { key: "screen" as const, label: "화면정의서" } : null,
+  ].filter((t): t is { key: TabKey; label: string } => t !== null);
 
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-6 py-8">
@@ -106,7 +148,7 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-indigo-600">검수</p>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-              {scenario.project_name || "테스트시나리오"}
+              {scenario.project_name || "산출물 검수"}
             </h1>
           </div>
           <dl className="flex gap-6 text-xs text-slate-500">
@@ -118,24 +160,50 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
               <dt className="text-slate-400">작성자</dt>
               <dd className="font-medium text-slate-700">{scenario.author || "-"}</dd>
             </div>
-            <div>
-              <dt className="text-slate-400">총 케이스</dt>
-              <dd className="font-medium text-slate-700">{total}건</dd>
-            </div>
           </dl>
         </div>
       </div>
 
-      <CaseTable
-        title="단위 테스트"
-        cases={scenario.unit_test_cases}
-        onChange={(i, f, v) => updateCase("unit_test_cases", i, f, v)}
-      />
-      <CaseTable
-        title="통합 테스트"
-        cases={scenario.integration_test_cases}
-        onChange={(i, f, v) => updateCase("integration_test_cases", i, f, v)}
-      />
+      {tabs.length > 1 && (
+        <div className="flex gap-1 border-b border-slate-200">
+          {tabs.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition ${
+                tab === t.key
+                  ? "border-indigo-600 text-indigo-700"
+                  : "border-transparent text-slate-500 hover:text-slate-800"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {tab === "requirement" && requirementSpec && (
+        <RequirementEditor spec={requirementSpec} onChange={edited(setRequirementSpec)} />
+      )}
+
+      {tab === "scenario" && (
+        <div className="flex flex-col gap-6">
+          <CaseTable
+            title="단위 테스트"
+            cases={scenario.unit_test_cases}
+            onChange={(i, f, v) => updateCase("unit_test_cases", i, f, v)}
+          />
+          <CaseTable
+            title="통합 테스트"
+            cases={scenario.integration_test_cases}
+            onChange={(i, f, v) => updateCase("integration_test_cases", i, f, v)}
+          />
+        </div>
+      )}
+
+      {tab === "screen" && screenSpec && (
+        <ScreenEditor spec={screenSpec} onChange={edited(setScreenSpec)} />
+      )}
 
       {render && (
         <div className="card flex flex-wrap items-center justify-between gap-4 border-emerald-200 bg-emerald-50 p-5">
