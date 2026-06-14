@@ -15,6 +15,7 @@ export interface Job {
   with_screens: boolean;
   with_requirements: boolean;
   with_wbs: boolean;
+  with_table_spec: boolean;
   error: string | null;
   created_at: string;
 }
@@ -23,11 +24,13 @@ export interface CreateJobOptions {
   withScreens?: boolean;
   withRequirements?: boolean;
   withWbs?: boolean;
+  withTableSpec?: boolean;
   startDate?: string;
   requirementSpecModel?: string;
   scenarioModel?: string;
   screenSpecModel?: string;
   wbsModel?: string;
+  tableSpecModel?: string;
 }
 
 export interface CoverInfo {
@@ -169,11 +172,13 @@ export async function createJob(
   form.append("with_screens", String(opts.withScreens ?? false));
   form.append("with_requirements", String(opts.withRequirements ?? false));
   form.append("with_wbs", String(opts.withWbs ?? false));
+  form.append("with_table_spec", String(opts.withTableSpec ?? false));
   if (opts.startDate) form.append("start_date", opts.startDate);
   if (opts.requirementSpecModel) form.append("requirement_spec_model", opts.requirementSpecModel);
   if (opts.scenarioModel) form.append("scenario_model", opts.scenarioModel);
   if (opts.screenSpecModel) form.append("screen_spec_model", opts.screenSpecModel);
   if (opts.wbsModel) form.append("wbs_model", opts.wbsModel);
+  if (opts.tableSpecModel) form.append("table_spec_model", opts.tableSpecModel);
   return parse<Job>(await fetch(`${API_BASE}/jobs`, { method: "POST", body: form }));
 }
 
