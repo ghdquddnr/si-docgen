@@ -384,7 +384,7 @@ RTM 이 REQ→SCR→TC 추적성을 연결·검증한다. 빠진 고리였던 **
 ### B6-1. 사용자 매뉴얼 렌더러 PoC
 - [x] `schemas/user_manual.py`(섹션→단계, 단계는 `screen_ref` 이미지 키로 참조), `renderers/user_manual_renderer.py`(docxtpl + InlineImage, 이미지 맵 주입), `templates/user_manual.docx`(+ build 스크립트, 섹션·단계 중첩 반복 + 이미지 자리), 골든/경계 테스트.
 - **AC**: 하드코딩 JSON + 플레이스홀더 PNG 로 양식 충실 + 이미지 삽입/플레이스홀더 분기 골든 검증 + 스키마 경계값.
-- 메모: **핵심 설계 — 캡처는 렌더러 밖**. 단계는 `screen_ref`(예: SCR-001)로만 참조하고, 실제 이미지는 렌더 시 `images`(screen_ref→파일경로) 맵으로 전달(절대 원칙: 렌더러는 네트워크 I/O·캡처 안 함). 참조에 이미지 있으면 `InlineImage`(폭 14cm), 없으면 `[화면 캡처: …]` 플레이스홀더, screen_ref 없으면 빈 자리. 섹션·단계 번호는 docxtpl `loop.index`(단계는 섹션마다 1부터). **새 의존성 없음**(docxtpl 이미지 삽입 + zlib 생성 플레이스홀더 PNG `tests/golden/fixtures/manual_screenshot.png`, python-docx 가 PNG 헤더 직접 읽어 pillow 불필요). 골든 6 + 경계 5 = 11건(총 259건). 샘플 `out/user_manual_sample.docx`(gitignore). **양식 시각 합격 판정은 사람 게이트(다음)**.
+- 메모: **핵심 설계 — 캡처는 렌더러 밖**. 단계는 `screen_ref`(예: SCR-001)로만 참조하고, 실제 이미지는 렌더 시 `images`(screen_ref→파일경로) 맵으로 전달(절대 원칙: 렌더러는 네트워크 I/O·캡처 안 함). 참조에 이미지 있으면 `InlineImage`(폭 14cm), 없으면 `[화면 캡처: …]` 플레이스홀더, screen_ref 없으면 빈 자리. 섹션·단계 번호는 docxtpl `loop.index`(단계는 섹션마다 1부터). **새 의존성 없음**(docxtpl 이미지 삽입 + zlib 생성 플레이스홀더 PNG `tests/golden/fixtures/manual_screenshot.png`, python-docx 가 PNG 헤더 직접 읽어 pillow 불필요). 골든 6 + 경계 5 = 11건(총 259건). 샘플 `out/user_manual_sample.docx`(gitignore). **2026-06-14 사용자 양식 검수 — 합격**.
 
 ### B6-2. (예정) 매뉴얼 LLM 생성
 - [ ] 원천 문서(+화면정의서)에서 매뉴얼 본문(섹션·단계·screen_ref) 생성. 캡처 전이라 이미지는 플레이스홀더로 렌더.
