@@ -13,9 +13,14 @@ export default function AppHeader() {
             <span className="hidden text-xs text-slate-400 sm:inline">SI 산출물 생성기</span>
           </span>
         </Link>
-        <Link href="/" className="text-sm text-slate-500 transition-colors hover:text-slate-900">
-          홈
-        </Link>
+        <nav className="flex items-center gap-5 text-sm">
+          <Link href="/" className="text-slate-500 transition-colors hover:text-slate-900">
+            홈
+          </Link>
+          <Link href="/canvas" className="text-slate-500 transition-colors hover:text-slate-900">
+            캔버스
+          </Link>
+        </nav>
       </div>
     </header>
   );

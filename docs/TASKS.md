@@ -249,9 +249,9 @@ RTM 이 REQ→SCR→TC 추적성을 연결·검증한다. 빠진 고리였던 **
 - 메모: `generate_scenario/screen_spec(model=...)` 우선순위 = 인자 > 설정. `with_screens` 는 NOT NULL 이라 **server_default=false() 필요**(SQLite 가 기존 행에 NOT NULL 컬럼 추가 시 default 없으면 실패). 진행값: 비체인=parsing/generating(P2 프론트 호환), 체인=scenario/screens(캔버스용). `render_job_outputs(scenario_json, screen_spec_json=None)` → 화면 있으면 `build_rtm_from_chain` 으로 RTM screen_ids 채우고 pptx 렌더. download kind `screen_spec`(pptx media type). `GET /jobs/{id}/screen-spec` 추가, `JobOut.with_screens`/`RenderOut.screen_count` 추가. e2e 4건(시나리오+화면 저장/화면조회/렌더·pptx다운로드·RTM 연결/비체인 409), 총 160건.
 
 ### P4-2. 캔버스 골격
-- [ ] `@xyflow/react` 도입 + `/canvas` 라우트 + 고정 파이프라인 노드(원천/시나리오/화면/RTM) 레이아웃·엣지
+- [x] `@xyflow/react` 도입 + `/canvas` 라우트 + 고정 파이프라인 노드(원천/시나리오/화면/RTM) 레이아웃·엣지
 - **AC**: 캔버스가 렌더되고 노드/연결선이 표시됨. lint/build 통과.
-- 메모:
+- 메모: `@xyflow/react` 12.11. 커스텀 노드 `components/canvas/PipelineNode`(상태 점 idle/running/done/error, LLM 노드 ✦ 강조, target/source Handle). `/canvas` 4노드(원천→시나리오/화면→RTM) + 4엣지(원천→LLM 애니메이션). 헤더에 '캔버스' 내비 추가. **함정**: ReactFlow 부모 컨테이너에 명시적 width/height 필요 — `flex-1`+inline height 충돌로 엣지 0개(error#004) → `flex-1` 제거하고 `width:100% / height:calc(100vh-9rem)` 명시하니 엣지 4개 정상. 프리뷰 스크린샷으로 확인(애니메이션 엣지라 캡처가 가끔 타임아웃 — DOM 검증 병행). 빌드 통과.
 
 ### P4-3. 캔버스 실행
 - [ ] 원천 업로드 노드 + LLM 노드별 모델 선택 + 실행 버튼(잡 생성 with_screens)
