@@ -254,14 +254,14 @@ RTM 이 REQ→SCR→TC 추적성을 연결·검증한다. 빠진 고리였던 **
 - 메모: `@xyflow/react` 12.11. 커스텀 노드 `components/canvas/PipelineNode`(상태 점 idle/running/done/error, LLM 노드 ✦ 강조, target/source Handle). `/canvas` 4노드(원천→시나리오/화면→RTM) + 4엣지(원천→LLM 애니메이션). 헤더에 '캔버스' 내비 추가. **함정**: ReactFlow 부모 컨테이너에 명시적 width/height 필요 — `flex-1`+inline height 충돌로 엣지 0개(error#004) → `flex-1` 제거하고 `width:100% / height:calc(100vh-9rem)` 명시하니 엣지 4개 정상. 프리뷰 스크린샷으로 확인(애니메이션 엣지라 캡처가 가끔 타임아웃 — DOM 검증 병행). 빌드 통과.
 
 ### P4-3. 캔버스 실행
-- [ ] 원천 업로드 노드 + LLM 노드별 모델 선택 + 실행 버튼(잡 생성 with_screens)
+- [x] 원천 업로드 노드 + LLM 노드별 모델 선택 + 실행 버튼(잡 생성 with_screens)
 - **AC**: 캔버스에서 업로드·실행 → 잡 생성됨.
-- 메모:
+- 메모: 상호작용 노드 `components/canvas/nodes.tsx`(SourceNode 파일선택 / LlmNode 모델 select 프리셋 / OutputNode). 표지 입력+▶실행은 React Flow `<Panel>`(top-left). `createJob(file, cover, {withScreens, scenarioModel, screenSpecModel})` 로 체인 잡 생성. 노드 내부 입력은 `nodrag` 클래스. → P4-4 와 한 커밋.
 
 ### P4-4. 라이브 상태 + 결과 연결
-- [ ] SSE 로 노드별 진행/완료 표시, 결과 노드 → 검수 화면·다운로드 링크
+- [x] SSE 로 노드별 진행/완료 표시, 결과 노드 → 검수 화면·다운로드 링크
 - **AC**: 실행 시 노드 상태가 갱신되고 완료 후 검수/다운로드 가능.
-- 메모:
+- 메모: SSE(`eventsUrl`) progress(scenario/screens/done)를 노드 상태(idle/running/done/error)로 매핑. OutputNode 완료 시 '검수 화면으로' + '렌더링하여 다운로드'(renderJob→downloads 링크). **핵심 함정**: 파생 노드를 `nodes` 컨트롤드 + `onNodesChange` no-op 으로 주면 **치수 측정 이벤트가 삼켜져 엣지 0개** → `useNodesState` 로 측정 반영 + 파생 data 는 effect 로 동기화하니 엣지 4개 정상. 프리뷰 스크린샷 확인(노드 4·엣지 4·파일입력·모델 select 2·실행 패널). lint/build 통과. 실제 라이브 실행은 P4-5.
 
 ### P4-5. Phase 4 품질 검수 (사람 게이트)
 - [ ] 캔버스로 업로드~다운로드 전 과정 수행 판정.

@@ -12,8 +12,15 @@ export interface Job {
   system_name: string;
   author: string;
   written_date: string;
+  with_screens: boolean;
   error: string | null;
   created_at: string;
+}
+
+export interface CreateJobOptions {
+  withScreens?: boolean;
+  scenarioModel?: string;
+  screenSpecModel?: string;
 }
 
 export interface CoverInfo {
@@ -88,13 +95,20 @@ async function parse<T>(res: Response): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export async function createJob(file: File, cover: CoverInfo): Promise<Job> {
+export async function createJob(
+  file: File,
+  cover: CoverInfo,
+  opts: CreateJobOptions = {},
+): Promise<Job> {
   const form = new FormData();
   form.append("file", file);
   form.append("project_name", cover.project_name);
   form.append("system_name", cover.system_name);
   form.append("author", cover.author);
   form.append("written_date", cover.written_date);
+  form.append("with_screens", String(opts.withScreens ?? false));
+  if (opts.scenarioModel) form.append("scenario_model", opts.scenarioModel);
+  if (opts.screenSpecModel) form.append("screen_spec_model", opts.screenSpecModel);
   return parse<Job>(await fetch(`${API_BASE}/jobs`, { method: "POST", body: form }));
 }
 
