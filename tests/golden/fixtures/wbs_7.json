@@ -1,0 +1,65 @@
+{
+  "project_name": "차세대 통합 업무시스템 구축",
+  "system_name": "통합 업무포털",
+  "author": "홍길동",
+  "written_date": "2026-06-14",
+  "start_date": "2026-07-01",
+  "tasks": [
+    {
+      "id": "analysis",
+      "name": "분석",
+      "children": [
+        {
+          "id": "req-analysis",
+          "name": "요구사항 분석",
+          "role": "PL",
+          "duration_days": 5,
+          "effort_md": 10,
+          "deliverable": "요구사항정의서"
+        },
+        {
+          "id": "screen-design",
+          "name": "화면 설계",
+          "role": "기획",
+          "duration_days": 4,
+          "effort_md": 8,
+          "predecessors": ["req-analysis"],
+          "deliverable": "화면정의서"
+        }
+      ]
+    },
+    {
+      "id": "development",
+      "name": "개발",
+      "children": [
+        {
+          "id": "backend-dev",
+          "name": "백엔드 개발",
+          "role": "백엔드 개발자",
+          "duration_days": 10,
+          "effort_md": 20,
+          "predecessors": ["screen-design"],
+          "deliverable": "API 모듈"
+        },
+        {
+          "id": "frontend-dev",
+          "name": "프론트엔드 개발",
+          "role": "프론트 개발자",
+          "duration_days": 8,
+          "effort_md": 16,
+          "predecessors": ["screen-design"],
+          "deliverable": "화면 구현체"
+        }
+      ]
+    },
+    {
+      "id": "test",
+      "name": "통합 시험",
+      "role": "QA",
+      "duration_days": 5,
+      "effort_md": 10,
+      "predecessors": ["backend-dev", "frontend-dev"],
+      "deliverable": "테스트결과서"
+    }
+  ]
+}
