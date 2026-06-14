@@ -25,15 +25,17 @@ import { LlmNode, OutputNode, SourceNode, type NodeStatus } from "@/components/c
 const nodeTypes = { source: SourceNode, llm: LlmNode, output: OutputNode };
 
 const POSITIONS: Record<string, { x: number; y: number }> = {
-  source: { x: 0, y: 150 },
-  requirement: { x: 280, y: 150 },
-  scenario: { x: 560, y: 0 },
-  screen: { x: 560, y: 240 },
-  rtm: { x: 840, y: 150 },
+  source: { x: 0, y: 200 },
+  requirement: { x: 280, y: 120 },
+  scenario: { x: 560, y: -20 },
+  screen: { x: 560, y: 200 },
+  wbs: { x: 280, y: 360 },
+  rtm: { x: 840, y: 120 },
 };
 
 const edges: Edge[] = [
   { id: "e-source-req", source: "source", target: "requirement", animated: true },
+  { id: "e-source-wbs", source: "source", target: "wbs", animated: true },
   { id: "e-req-scenario", source: "requirement", target: "scenario", animated: true },
   { id: "e-req-screen", source: "requirement", target: "screen", animated: true },
   { id: "e-scenario-rtm", source: "scenario", target: "rtm" },
@@ -45,7 +47,7 @@ function today(): string {
 }
 
 // 진행 단계 순서(노드 보유 단계). progress 값이 이 중 어디인지로 노드 상태를 파생한다.
-const STAGES = ["requirements", "scenario", "screens"] as const;
+const STAGES = ["requirements", "scenario", "screens", "wbs"] as const;
 
 function nodeStatuses(running: boolean, ev: ProgressEvent | null) {
   const prog = ev?.progress ?? null;
@@ -67,13 +69,15 @@ function nodeStatuses(running: boolean, ev: ProgressEvent | null) {
     requirement: statusFor(0),
     scenario: statusFor(1),
     screen: statusFor(2),
+    wbs: statusFor(3),
     output: ok ? "done" : fail ? "error" : "idle",
   };
 }
 
 export default function CanvasPage() {
   const [file, setFile] = useState<File | null>(null);
-  const [models, setModels] = useState({ requirement: "", scenario: "", screen: "" });
+  const [models, setModels] = useState({ requirement: "", scenario: "", screen: "", wbs: "" });
+  const [startDate, setStartDate] = useState(today());
   const [cover, setCover] = useState<CoverInfo>({
     project_name: "",
     system_name: "",
@@ -135,15 +139,23 @@ export default function CanvasPage() {
             onModel: (m: string) => setModels((s) => ({ ...s, screen: m })),
             disabled: running,
           };
+        case "wbs":
+          return {
+            title: "WBS",
+            status: st.wbs,
+            model: models.wbs,
+            onModel: (m: string) => setModels((s) => ({ ...s, wbs: m })),
+            disabled: running,
+          };
         default:
           return { status: st.output, jobId, downloads, onRender: doRender, rendering };
       }
     },
-    [file, running, st.requirement, st.scenario, st.screen, st.output, models, jobId, downloads, rendering, doRender],
+    [file, running, st.requirement, st.scenario, st.screen, st.wbs, st.output, models, jobId, downloads, rendering, doRender],
   );
 
   const [rfNodes, setRfNodes, onNodesChange] = useNodesState<Node>(
-    ["source", "requirement", "scenario", "screen", "rtm"].map((id) => ({
+    ["source", "requirement", "scenario", "screen", "wbs", "rtm"].map((id) => ({
       id,
       type: id === "source" ? "source" : id === "rtm" ? "output" : "llm",
       position: POSITIONS[id],
@@ -166,9 +178,12 @@ export default function CanvasPage() {
     try {
       const job = await createJob(file, cover, {
         withRequirements: true,
+        withWbs: true,
+        startDate,
         requirementSpecModel: models.requirement,
         scenarioModel: models.scenario,
         screenSpecModel: models.screen,
+        wbsModel: models.wbs,
       });
       setJobId(job.id);
       setRunning(true);
@@ -231,6 +246,16 @@ export default function CanvasPage() {
                   className="rounded-md border border-slate-300 px-2 py-1 text-xs focus:border-indigo-400 focus:outline-none"
                 />
               ))}
+              <label className="flex items-center justify-between gap-2 text-xs text-slate-500">
+                WBS 시작일
+                <input
+                  type="date"
+                  value={startDate}
+                  disabled={running}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="rounded-md border border-slate-300 px-2 py-1 text-xs focus:border-indigo-400 focus:outline-none"
+                />
+              </label>
               <button
                 onClick={run}
                 disabled={running || !file}

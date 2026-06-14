@@ -14,6 +14,7 @@ export interface Job {
   written_date: string;
   with_screens: boolean;
   with_requirements: boolean;
+  with_wbs: boolean;
   error: string | null;
   created_at: string;
 }
@@ -21,9 +22,12 @@ export interface Job {
 export interface CreateJobOptions {
   withScreens?: boolean;
   withRequirements?: boolean;
+  withWbs?: boolean;
+  startDate?: string;
   requirementSpecModel?: string;
   scenarioModel?: string;
   screenSpecModel?: string;
+  wbsModel?: string;
 }
 
 export interface CoverInfo {
@@ -164,9 +168,12 @@ export async function createJob(
   form.append("written_date", cover.written_date);
   form.append("with_screens", String(opts.withScreens ?? false));
   form.append("with_requirements", String(opts.withRequirements ?? false));
+  form.append("with_wbs", String(opts.withWbs ?? false));
+  if (opts.startDate) form.append("start_date", opts.startDate);
   if (opts.requirementSpecModel) form.append("requirement_spec_model", opts.requirementSpecModel);
   if (opts.scenarioModel) form.append("scenario_model", opts.scenarioModel);
   if (opts.screenSpecModel) form.append("screen_spec_model", opts.screenSpecModel);
+  if (opts.wbsModel) form.append("wbs_model", opts.wbsModel);
   return parse<Job>(await fetch(`${API_BASE}/jobs`, { method: "POST", body: form }));
 }
 

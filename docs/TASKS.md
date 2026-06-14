@@ -11,8 +11,8 @@
 
 ## 현재 상태
 
-- **현재 Phase**: 로드맵(Phase 0~4) 완료. **백로그 — B1·B2 완료, B3(WBS) 렌더러 PoC + 양식 검수 합격**.
-- **진행 중 태스크**: 없음 (B3-1 완료·양식 합격. 다음: WBS LLM 생성·CLI·웹 또는 다른 신규 산출물).
+- **현재 Phase**: 로드맵(Phase 0~4) 완료. **백로그 — B1·B2 완료, B3(WBS) 렌더러~LLM~CLI~웹 구현 완료**.
+- **진행 중 태스크**: 없음 (B3-1~B3-4 완료. 다음: 웹 WBS 라이브 사람 검수 또는 다른 신규 산출물).
 - **차단 사항**: 없음.
 
 ---
@@ -325,7 +325,20 @@ RTM 이 REQ→SCR→TC 추적성을 연결·검증한다. 빠진 고리였던 **
 ### B3-1. WBS 렌더러 PoC
 - [x] `schemas/wbs.py`(트리 모델 — 입력은 구조·기간·공수·선행만), `renderers/wbs_renderer.py`, `templates/wbs.xlsx`(+ `scripts/templates/build_wbs_template.py`), 골든/경계 테스트.
 - **AC**: 하드코딩 JSON 으로 양식 충실 + **계층번호·일정·요약 공수 합산 계산** 골든 검증 + 스키마 경계값.
-- 메모: **핵심 — 계층번호(1.1.2)·일정(시작/종료)·요약 공수 합산은 렌더러 코드가 계산**(CLAUDE.md 원칙). 선행은 계층번호가 아닌 안정적 `id` 로 참조 → 렌더러가 id→계층번호로 표시. 일정은 **선행 종료 다음 날부터 기간만큼(달력일, 휴일 미고려 — PoC 한계)**, 요약 태스크는 자식 최소시작~최대종료. 스키마 검증: id 유일·작업태스크 기간≥1·선행은 작업태스크 id 만·자기참조/순환 금지. 8열 단일 헤더(WBS No./태스크명/담당/시작/종료/공수(MD)/선행/산출물), STYLE_ROW=9. 골든 8 + 경계 8 = 16건 추가(총 195건). 샘플 `out/wbs_sample.xlsx`(gitignore). **2026-06-14 사용자 양식 검수 — 합격**. 다음 라운드: LLM 생성 프롬프트(트리 출력, 계층/일정은 렌더러)·CLI·웹.
+- 메모: **핵심 — 계층번호(1.1.2)·일정(시작/종료)·요약 공수 합산은 렌더러 코드가 계산**(CLAUDE.md 원칙). 선행은 계층번호가 아닌 안정적 `id` 로 참조 → 렌더러가 id→계층번호로 표시. 일정은 **선행 종료 다음 날부터 기간만큼(달력일, 휴일 미고려 — PoC 한계)**, 요약 태스크는 자식 최소시작~최대종료. 스키마 검증: id 유일·작업태스크 기간≥1·선행은 작업태스크 id 만·자기참조/순환 금지. 8열 단일 헤더(WBS No./태스크명/담당/시작/종료/공수(MD)/선행/산출물), STYLE_ROW=9. 골든 8 + 경계 8 = 16건 추가(총 195건). 샘플 `out/wbs_sample.xlsx`(gitignore). **2026-06-14 사용자 양식 검수 — 합격**.
+
+### B3-2. WBS LLM 생성
+- [x] `prompts.py` WBS 프롬프트(2~3단계 트리, id 슬러그, 작업 태스크만 기간/공수, 선행은 작업 id, 계층번호·날짜 미출력) + `pipelines/generate_wbs.py::generate_wbs` + `config.wbs_model` + `scripts/eval/eval_wbs.py`.
+- **AC**: 모킹 단위 테스트 + e4b eval. 메모: **e4b eval 1/1 통과**(트리 17/작업 11/선행 사용, 154s — 검증 재시도 루프가 초기 무효 출력 교정). 스키마가 태스크에 날짜 필드를 두지 않아 LLM 이 일정을 출력할 수 없음 → 계층/일정 분리 강제됨. 단위 3건(총 198건).
+
+### B3-3. WBS CLI
+- [x] `generate_and_render_wbs`(생성→wbs.xlsx) + CLI `si-docgen wbs --input ... --start-date ...`(체인과 독립 서브커맨드).
+- **AC**: 모킹 e2e — 입력 → wbs.xlsx(계층번호·선행 연결 검증), CLI 종료코드. 메모: 단위 3건(총 201건).
+
+### B3-4. WBS 웹 연동
+- [x] **백엔드(B3-4a)**: `Job` with_wbs/wbs_json/start_date/wbs_model 컬럼 + 마이그레이션. `run_job` with_wbs 분기(progress wbs, start_date 미지정 시 작성일 보정). `render_job_outputs(wbs_json=)` wbs.xlsx, download kind wbs. `POST /jobs` 폼, `GET /jobs/{id}/wbs`, `JobOut.with_wbs`. e2e 4건(총 205건).
+- [x] **프론트(B3-4b)**: `api.ts`(withWbs/startDate/wbsModel). 캔버스에 **WBS 노드 추가**(source→WBS 독립, 6노드), STAGES 에 wbs 추가, 표지 패널에 'WBS 시작일' date 입력, `withWbs:true` 로 실행. 다운로드 라벨에 WBS 추가(검수·캔버스).
+- **AC**: lint/build 통과, 캔버스 WBS 노드·시작일 입력 렌더. 메모: 프리뷰 DOM 검증 — 6노드(source/요구사항/시나리오/화면/WBS/RTM)·WBS 노드 모델 select·시작일 입력 확인, 콘솔 에러 없음. 엣지는 헤드리스 미표시(기존과 동일, 실브라우저 표시). WBS 는 시나리오와 독립 생성(REQ 체인과 별개)이라 캔버스에서 source→WBS 로 직접 연결. **라이브 4종+WBS 생성 판정은 사람 게이트(후속)**.
 
 ## 백로그 (Phase 미배정)
 
@@ -337,7 +350,7 @@ RTM 이 REQ→SCR→TC 추적성을 연결·검증한다. 빠진 고리였던 **
 - [ ] 프론트 검수 화면 행 추가/삭제 (P2-7 에서 MVP 제외)
 - [ ] 양식 온보딩 반자동화: 고객사 양식 분석 → 플레이스홀더 위치 제안 도구
 - [ ] HWP(hwpx) 출력 지원 검토
-- [~] WBS 산출물 — 위 'B3' 섹션(렌더러 PoC 완료, LLM·웹 후속)
+- [x] WBS 산출물 — 위 'B3' 섹션(렌더러 PoC·LLM·CLI·웹 완료, 라이브 사람 게이트만 후속)
 - [ ] 인터페이스정의서, 테이블정의서 산출물 추가
 
 ---

@@ -288,6 +288,7 @@ const DOWNLOAD_LABEL: Record<string, string> = {
   test_scenario: "테스트시나리오",
   rtm: "요건추적표(RTM)",
   screen_spec: "화면정의서",
+  wbs: "WBS",
 };
 
 function Centered({ children }: { children: React.ReactNode }) {
