@@ -11,8 +11,8 @@
 
 ## 현재 상태
 
-- **현재 Phase**: 로드맵(Phase 0~4) 완료. **백로그 — B1·B2 완료, B3(WBS) 렌더러~LLM~CLI~웹 구현 완료**.
-- **진행 중 태스크**: 없음 (B3-1~B3-4 완료. 다음: 웹 WBS 라이브 사람 검수 또는 다른 신규 산출물).
+- **현재 Phase**: 로드맵(Phase 0~4) 완료. **백로그 — B1·B2·B3 완료, B4(테이블정의서) 렌더러 PoC 완료**.
+- **진행 중 태스크**: 없음 (B4-1 렌더러 PoC 완료. 다음: 양식 사람 검수 → 합격 시 LLM/CLI/웹).
 - **차단 사항**: 없음.
 
 ---
@@ -338,7 +338,16 @@ RTM 이 REQ→SCR→TC 추적성을 연결·검증한다. 빠진 고리였던 **
 ### B3-4. WBS 웹 연동
 - [x] **백엔드(B3-4a)**: `Job` with_wbs/wbs_json/start_date/wbs_model 컬럼 + 마이그레이션. `run_job` with_wbs 분기(progress wbs, start_date 미지정 시 작성일 보정). `render_job_outputs(wbs_json=)` wbs.xlsx, download kind wbs. `POST /jobs` 폼, `GET /jobs/{id}/wbs`, `JobOut.with_wbs`. e2e 4건(총 205건).
 - [x] **프론트(B3-4b)**: `api.ts`(withWbs/startDate/wbsModel). 캔버스에 **WBS 노드 추가**(source→WBS 독립, 6노드), STAGES 에 wbs 추가, 표지 패널에 'WBS 시작일' date 입력, `withWbs:true` 로 실행. 다운로드 라벨에 WBS 추가(검수·캔버스).
-- **AC**: lint/build 통과, 캔버스 WBS 노드·시작일 입력 렌더. 메모: 프리뷰 DOM 검증 — 6노드(source/요구사항/시나리오/화면/WBS/RTM)·WBS 노드 모델 select·시작일 입력 확인, 콘솔 에러 없음. 엣지는 헤드리스 미표시(기존과 동일, 실브라우저 표시). WBS 는 시나리오와 독립 생성(REQ 체인과 별개)이라 캔버스에서 source→WBS 로 직접 연결. **라이브 4종+WBS 생성 판정은 사람 게이트(후속)**.
+- **AC**: lint/build 통과, 캔버스 WBS 노드·시작일 입력 렌더. 메모: 프리뷰 DOM 검증 — 6노드(source/요구사항/시나리오/화면/WBS/RTM)·WBS 노드 모델 select·시작일 입력 확인, 콘솔 에러 없음. 엣지는 헤드리스 미표시(기존과 동일, 실브라우저 표시). WBS 는 시나리오와 독립 생성(REQ 체인과 별개)이라 캔버스에서 source→WBS 로 직접 연결. **2026-06-14 사용자 라이브 검수 — 합격**(캔버스 5종 생성·다운로드 정상). 함께: 렌더링 완료 후 검수 하단 액션 바 숨김. **→ B3(WBS) 전체 종료.**
+
+## 백로그 작업: 신규 산출물 — 테이블정의서
+
+**목표**: WBS 와 동일 흐름(렌더러 PoC → LLM → CLI → 웹). 양식은 목록형(테이블별 컬럼을 행으로 펼침).
+
+### B4-1. 테이블정의서 렌더러 PoC
+- [x] `schemas/table_spec.py`(Table/Column, 물리명 유일성), `renderers/table_spec_renderer.py`, `templates/table_spec.xlsx`(+ `scripts/templates/build_table_spec_template.py`), 골든/경계 테스트.
+- **AC**: 하드코딩 JSON 으로 양식 충실 + 테이블별 컬럼 펼침·PK/Null/FK 표기·번호 리셋 골든 검증 + 스키마 경계값.
+- 메모: **목록형** 11열(No./테이블 논리·물리명/컬럼 논리·물리명/타입/PK/FK 참조/Null/기본값/설명), STYLE_ROW=9. 테이블 논리/물리명은 컬럼마다 반복, 번호는 테이블 내 1부터. PK→"PK", Null→Y/N, FK→참조 문자열. 검증: 테이블 물리명 문서 전체 유일·컬럼 물리명 테이블 내 유일. 골든 8 + 경계 5 = 13건(총 218건). 샘플 `out/table_spec_sample.xlsx`(gitignore). **양식 시각 합격 판정은 사람 게이트(다음)**. 합격 시 LLM 생성(테이블 트리 출력)·CLI·웹.
 
 ## 백로그 (Phase 미배정)
 
@@ -350,7 +359,8 @@ RTM 이 REQ→SCR→TC 추적성을 연결·검증한다. 빠진 고리였던 **
 - [ ] 양식 온보딩 반자동화: 고객사 양식 분석 → 플레이스홀더 위치 제안 도구
 - [ ] HWP(hwpx) 출력 지원 검토
 - [x] WBS 산출물 — 위 'B3' 섹션(렌더러 PoC·LLM·CLI·웹 완료, 라이브 사람 게이트만 후속)
-- [ ] 인터페이스정의서, 테이블정의서 산출물 추가
+- [~] 테이블정의서 — 위 'B4' 섹션(렌더러 PoC 완료)
+- [ ] 인터페이스정의서 산출물 추가
 
 ---
 

@@ -1,0 +1,64 @@
+{
+  "project_name": "차세대 통합 업무시스템 구축",
+  "system_name": "통합 업무포털",
+  "author": "홍길동",
+  "written_date": "2026-06-14",
+  "tables": [
+    {
+      "logical_name": "사용자",
+      "physical_name": "TB_USER",
+      "description": "사용자 계정 정보",
+      "columns": [
+        {
+          "logical_name": "사용자 ID",
+          "physical_name": "USER_ID",
+          "data_type": "VARCHAR(20)",
+          "is_pk": true,
+          "is_nullable": false,
+          "description": "로그인 ID"
+        },
+        {
+          "logical_name": "비밀번호",
+          "physical_name": "PASSWORD",
+          "data_type": "VARCHAR(256)",
+          "is_pk": false,
+          "is_nullable": false,
+          "description": "해시 저장"
+        },
+        {
+          "logical_name": "부서 코드",
+          "physical_name": "DEPT_CODE",
+          "data_type": "VARCHAR(10)",
+          "is_pk": false,
+          "is_nullable": true,
+          "fk_ref": "TB_DEPT.DEPT_CODE",
+          "description": "소속 부서"
+        }
+      ]
+    },
+    {
+      "logical_name": "부서",
+      "physical_name": "TB_DEPT",
+      "description": "부서 마스터",
+      "columns": [
+        {
+          "logical_name": "부서 코드",
+          "physical_name": "DEPT_CODE",
+          "data_type": "VARCHAR(10)",
+          "is_pk": true,
+          "is_nullable": false,
+          "description": "부서 식별 코드"
+        },
+        {
+          "logical_name": "부서명",
+          "physical_name": "DEPT_NAME",
+          "data_type": "VARCHAR(100)",
+          "is_pk": false,
+          "is_nullable": false,
+          "default": "''",
+          "description": "부서 이름"
+        }
+      ]
+    }
+  ]
+}
