@@ -17,6 +17,7 @@ export interface Job {
   with_wbs: boolean;
   with_table_spec: boolean;
   with_interface_spec: boolean;
+  with_user_manual: boolean;
   error: string | null;
   created_at: string;
 }
@@ -27,6 +28,7 @@ export interface CreateJobOptions {
   withWbs?: boolean;
   withTableSpec?: boolean;
   withInterfaceSpec?: boolean;
+  withUserManual?: boolean;
   startDate?: string;
   requirementSpecModel?: string;
   scenarioModel?: string;
@@ -34,6 +36,7 @@ export interface CreateJobOptions {
   wbsModel?: string;
   tableSpecModel?: string;
   interfaceSpecModel?: string;
+  userManualModel?: string;
 }
 
 export interface CoverInfo {
@@ -129,6 +132,29 @@ export interface ScreenSpec {
   screens: Screen[];
 }
 
+export interface ManualStep {
+  instruction: string;
+  screen_ref: string;
+  caption: string;
+}
+
+export interface ManualSection {
+  title: string;
+  description: string;
+  steps: ManualStep[];
+}
+
+export interface UserManual {
+  project_name: string;
+  system_name: string;
+  author: string;
+  written_date: string;
+  sections: ManualSection[];
+}
+
+// screen_ref → 화면 캡처 업로드 여부
+export type ManualImageStatus = Record<string, boolean>;
+
 // SSE 진행 이벤트 페이로드
 export interface ProgressEvent {
   status: JobStatus;
@@ -177,6 +203,7 @@ export async function createJob(
   form.append("with_wbs", String(opts.withWbs ?? false));
   form.append("with_table_spec", String(opts.withTableSpec ?? false));
   form.append("with_interface_spec", String(opts.withInterfaceSpec ?? false));
+  form.append("with_user_manual", String(opts.withUserManual ?? false));
   if (opts.startDate) form.append("start_date", opts.startDate);
   if (opts.requirementSpecModel) form.append("requirement_spec_model", opts.requirementSpecModel);
   if (opts.scenarioModel) form.append("scenario_model", opts.scenarioModel);
@@ -184,6 +211,7 @@ export async function createJob(
   if (opts.wbsModel) form.append("wbs_model", opts.wbsModel);
   if (opts.tableSpecModel) form.append("table_spec_model", opts.tableSpecModel);
   if (opts.interfaceSpecModel) form.append("interface_spec_model", opts.interfaceSpecModel);
+  if (opts.userManualModel) form.append("user_manual_model", opts.userManualModel);
   return parse<Job>(await fetch(`${API_BASE}/jobs`, { method: "POST", body: form }));
 }
 
@@ -229,6 +257,47 @@ export async function putScreenSpec(id: string, spec: ScreenSpec): Promise<Job> 
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(spec),
+    }),
+  );
+}
+
+export async function getUserManual(id: string): Promise<UserManual> {
+  return parse<UserManual>(await fetch(`${API_BASE}/jobs/${id}/user-manual`));
+}
+
+export async function putUserManual(id: string, manual: UserManual): Promise<Job> {
+  return parse<Job>(
+    await fetch(`${API_BASE}/jobs/${id}/user-manual`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(manual),
+    }),
+  );
+}
+
+export async function listManualImages(id: string): Promise<ManualImageStatus> {
+  return parse<ManualImageStatus>(await fetch(`${API_BASE}/jobs/${id}/manual-images`));
+}
+
+export async function uploadManualImage(
+  id: string,
+  screenRef: string,
+  file: File,
+): Promise<void> {
+  const form = new FormData();
+  form.append("file", file);
+  await parse<unknown>(
+    await fetch(`${API_BASE}/jobs/${id}/manual-images/${encodeURIComponent(screenRef)}`, {
+      method: "POST",
+      body: form,
+    }),
+  );
+}
+
+export async function deleteManualImage(id: string, screenRef: string): Promise<void> {
+  await parse<unknown>(
+    await fetch(`${API_BASE}/jobs/${id}/manual-images/${encodeURIComponent(screenRef)}`, {
+      method: "DELETE",
     }),
   );
 }

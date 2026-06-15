@@ -11,8 +11,8 @@
 
 ## 현재 상태
 
-- **현재 Phase**: 로드맵(Phase 0~4) 완료. **백로그 — B1~B7 완료. HWP 제외. 잔여 백로그 거의 소진.**
-- **진행 중 태스크**: 없음 (B7 양식 온보딩 분석기 완료. 다음: 라이브 사람 검수 등).
+- **현재 Phase**: 로드맵(Phase 0~4) 완료. **백로그 — B1~B7 완료, B6-4(매뉴얼 웹 노출) 완료. HWP 제외.**
+- **진행 중 태스크**: 없음 (B6-4 사용자 매뉴얼 웹 연동 완료. 다음: 라이브 사람 검수 등).
 - **차단 사항**: 없음.
 
 ---
@@ -395,6 +395,12 @@ RTM 이 REQ→SCR→TC 추적성을 연결·검증한다. 빠진 고리였던 **
 - **AC**: 폴더의 `{screen_ref}.png` 가 해당 단계에 삽입되고, 없는 참조는 플레이스홀더 유지. → 통과(collect 매칭·삽입·CLI 3건, 총 266건). 샘플 `out/user_manual_captured.docx`(이미지 2개 삽입).
 - 메모: **Playwright 재도입 안 함**(수동 방식이라 불필요). 자동 캡처(우리 화면 HTML→PNG / 고객 앱)는 필요 시 후속 옵션. 매뉴얼 웹 노출(B6-4)은 보류 — 웹에서는 이미지 업로드 UX 가 필요해 별도 설계. **→ B6(사용자 매뉴얼 CLI) 완료.**
 
+### B6-4. 사용자 매뉴얼 웹 연동
+- [x] **백엔드(B6-4a)**: `Job` with_user_manual/user_manual_json/user_manual_model 컬럼 + 마이그레이션(a1b2c3d4e5f6). `run_job` with_user_manual 분기(progress user_manual). `render_job_outputs(user_manual_json=)` 가 업로드된 화면 캡처를 수집(`collect_images`)해 docx 렌더, download kind user_manual. `POST /jobs` 폼, `GET/PUT /jobs/{id}/user-manual`, `JobOut.with_user_manual`. **화면 캡처 업로드 엔드포인트**: `GET /jobs/{id}/manual-images`(screen_ref별 업로드 여부), `POST/DELETE /jobs/{id}/manual-images/{screen_ref}`.
+- [x] **프론트(B6-4b)**: `api.ts`(UserManual 타입 + get/put, withUserManual/userManualModel, list/upload/delete manual-images). 캔버스에 **사용자 매뉴얼 노드 추가**(source→사용자 매뉴얼 독립, 9노드), STAGES 에 user_manual 추가, `withUserManual:true` 로 실행. 검수 화면에 **사용자 매뉴얼 탭**(`components/review/ManualEditor` — 섹션·단계 편집 + screen_ref별 화면 캡처 업로드/교체/삭제). 다운로드 라벨 추가(검수·캔버스).
+- **AC**: LLM 모킹 e2e — with_user_manual 업로드 → 매뉴얼 JSON 저장 → 캡처 업로드 → 렌더 → docx(이미지 삽입) 다운로드. lint/build 통과.
+- 메모: **이미지 업로드 UX 설계(B6-3 에서 보류했던 부분)**: 렌더러는 순수 함수 유지 — 이미지는 서비스 계층(`job_service`)이 `data/jobs/{id}/manual_images/{screen_ref}.{ext}` 에서 수집해 맵으로만 전달(절대 원칙 2). screen_ref 는 매뉴얼에 실재하고 파일명 안전(경로 탈출 차단)할 때만 저장 → 없는 ref 업로드 404, 미지원 형식 400. 같은 ref 의 기존 이미지는 교체 시 제거(단일 매칭). 미업로드 ref 는 기존대로 플레이스홀더. 백엔드 e2e 9건 추가(총 284건), ruff/eslint/next build 통과. **프리뷰 검증**: 캔버스 9노드(사용자 매뉴얼 포함) 렌더·콘솔 에러 없음. 검수 탭은 헤드리스 프리뷰가 격리 샌드박스 DB 를 읽어 시드 주입 미반영 — 라이브 검수(실모델 매뉴얼 생성·캡처 업로드·docx 다운로드)는 사람 게이트(후속). 엣지는 기존과 동일하게 헤드리스 미표시(실브라우저 표시).
+
 ## 백로그 작업: 양식 온보딩 반자동화 (B7)
 
 ### B7-1. 엑셀 양식 분석기
@@ -408,7 +414,7 @@ RTM 이 REQ→SCR→TC 추적성을 연결·검증한다. 빠진 고리였던 **
 - [x] ~~웹 검수 화면에 화면정의서/요구사항정의서 편집 UI~~ → 위 'B2' 섹션에서 구현
 - [x] ~~검수 화면 행/항목 추가·삭제~~ → B2-3 에서 구현
 - [x] 요구사항정의서(docx) 생성 — 위 'B1' 섹션(B1-1·B1-2·B1-3) 완료, 사람 게이트(B1-3c)만 대기
-- [x] 사용자 매뉴얼(docx) 생성 — 위 'B6' 섹션(렌더러·LLM·CLI+수동 이미지 폴더 완료)
+- [x] 사용자 매뉴얼(docx) 생성 — 위 'B6' 섹션(렌더러·LLM·CLI+수동 이미지 폴더, B6-4 웹 연동까지 완료)
 - [x] 양식 온보딩 반자동화: 고객사 양식 분석 → 플레이스홀더 위치 제안 도구 (위 'B7' 섹션)
 - [x] ~~HWP(hwpx) 출력 지원 검토~~ → **제외(2026-06-14 사용자 결정)**: 제대로 된 공개 API 부재 + 검증에 한글뷰어 설치 필요라 비용 대비 가치 낮음
 - [x] WBS 산출물 — 위 'B3' 섹션(렌더러 PoC·LLM·CLI·웹 완료, 라이브 사람 게이트만 후속)

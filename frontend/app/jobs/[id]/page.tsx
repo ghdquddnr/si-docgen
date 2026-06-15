@@ -5,28 +5,36 @@ import { use, useEffect, useState } from "react";
 
 import {
   ApiError,
+  deleteManualImage,
   downloadUrl,
   getJob,
   getRequirementSpec,
   getScenario,
   getScreenSpec,
+  getUserManual,
+  listManualImages,
   putRequirementSpec,
   putScenario,
   putScreenSpec,
+  putUserManual,
   renderJob,
+  uploadManualImage,
   type CaseListKey,
   type Job,
+  type ManualImageStatus,
   type RenderResult,
   type RequirementSpec,
   type Scenario,
   type ScreenSpec,
   type TestCase,
+  type UserManual,
 } from "@/lib/api";
+import { ManualEditor } from "@/components/review/ManualEditor";
 import { RequirementEditor } from "@/components/review/RequirementEditor";
 import { ScreenEditor } from "@/components/review/ScreenEditor";
 import { nextNumberedId } from "@/lib/review";
 
-type TabKey = "requirement" | "scenario" | "screen";
+type TabKey = "requirement" | "scenario" | "screen" | "manual";
 
 export default function ReviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -34,6 +42,8 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
   const [requirementSpec, setRequirementSpec] = useState<RequirementSpec | null>(null);
   const [scenario, setScenario] = useState<Scenario | null>(null);
   const [screenSpec, setScreenSpec] = useState<ScreenSpec | null>(null);
+  const [userManual, setUserManual] = useState<UserManual | null>(null);
+  const [manualImages, setManualImages] = useState<ManualImageStatus>({});
   const [tab, setTab] = useState<TabKey>("scenario");
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -51,6 +61,8 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
           getScenario(id).then(setScenario),
           j.with_requirements ? getRequirementSpec(id).then(setRequirementSpec) : null,
           j.with_screens || j.with_requirements ? getScreenSpec(id).then(setScreenSpec) : null,
+          j.with_user_manual ? getUserManual(id).then(setUserManual) : null,
+          j.with_user_manual ? listManualImages(id).then(setManualImages) : null,
         ]);
         if (j.with_requirements) setTab("requirement");
       } catch (e) {
@@ -114,6 +126,35 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
     if (requirementSpec) await putRequirementSpec(id, requirementSpec);
     if (scenario) await putScenario(id, scenario);
     if (screenSpec) await putScreenSpec(id, screenSpec);
+    if (userManual) await putUserManual(id, userManual);
+  }
+
+  async function handleUploadImage(screenRef: string, file: File) {
+    setSaveErr(null);
+    setSaveMsg(null);
+    try {
+      await uploadManualImage(id, screenRef, file);
+      setManualImages(await listManualImages(id));
+      setRender(null);
+    } catch (e) {
+      setSaveErr(
+        e instanceof ApiError
+          ? `업로드 실패: ${e.message}`
+          : "이미지 업로드에 실패했습니다.",
+      );
+    }
+  }
+
+  async function handleDeleteImage(screenRef: string) {
+    setSaveErr(null);
+    setSaveMsg(null);
+    try {
+      await deleteManualImage(id, screenRef);
+      setManualImages(await listManualImages(id));
+      setRender(null);
+    } catch (e) {
+      setSaveErr(e instanceof ApiError ? e.message : "이미지 삭제에 실패했습니다.");
+    }
   }
 
   async function handleSave() {
@@ -168,6 +209,7 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
     requirementSpec ? { key: "requirement" as const, label: "요구사항정의서" } : null,
     { key: "scenario" as const, label: "테스트시나리오" },
     screenSpec ? { key: "screen" as const, label: "화면정의서" } : null,
+    userManual ? { key: "manual" as const, label: "사용자 매뉴얼" } : null,
   ].filter((t): t is { key: TabKey; label: string } => t !== null);
 
   return (
@@ -241,6 +283,16 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
         <ScreenEditor spec={screenSpec} onChange={edited(setScreenSpec)} />
       )}
 
+      {tab === "manual" && userManual && (
+        <ManualEditor
+          manual={userManual}
+          onChange={edited(setUserManual)}
+          images={manualImages}
+          onUpload={handleUploadImage}
+          onDelete={handleDeleteImage}
+        />
+      )}
+
       {render && (
         <div className="card flex flex-wrap items-center justify-between gap-4 border-emerald-200 bg-emerald-50 p-5">
           <div className="text-sm">
@@ -293,6 +345,7 @@ const DOWNLOAD_LABEL: Record<string, string> = {
   wbs: "WBS",
   table_spec: "테이블정의서",
   interface_spec: "인터페이스정의서",
+  user_manual: "사용자 매뉴얼",
 };
 
 function Centered({ children }: { children: React.ReactNode }) {

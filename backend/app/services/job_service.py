@@ -29,12 +29,18 @@ from app.pipelines.generate_test_scenario import (
     TEST_SCENARIO_TEMPLATE,
     generate_scenario,
 )
+from app.pipelines.generate_user_manual import (
+    USER_MANUAL_TEMPLATE,
+    collect_images,
+    generate_user_manual,
+)
 from app.pipelines.generate_wbs import WBS_TEMPLATE, generate_wbs
 from app.renderers.docx_renderer import render_requirement_spec
 from app.renderers.interface_spec_renderer import render_interface_spec
 from app.renderers.pptx_renderer import render_screen_spec
 from app.renderers.rtm_renderer import render_rtm
 from app.renderers.table_spec_renderer import render_table_spec
+from app.renderers.user_manual_renderer import render_user_manual
 from app.renderers.wbs_renderer import render_wbs
 from app.renderers.xlsx_renderer import render_test_scenario
 from app.schemas.interface_spec import InterfaceSpecDocument
@@ -48,6 +54,7 @@ from app.schemas.rtm import (
 from app.schemas.screen_spec import ScreenSpecDocument
 from app.schemas.table_spec import TableSpecDocument
 from app.schemas.test_scenario import TestScenarioDocument
+from app.schemas.user_manual import UserManualDocument
 from app.schemas.wbs import WBSDocument
 
 logger = logging.getLogger(__name__)
@@ -64,7 +71,11 @@ OUTPUT_FILES = {
     "wbs": "wbs.xlsx",
     "table_spec": "table_spec.xlsx",
     "interface_spec": "interface_spec.xlsx",
+    "user_manual": "user_manual.docx",
 }
+
+# 사용자 매뉴얼 화면 캡처 업로드 시 허용하는 이미지 확장자
+SUPPORTED_IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".gif", ".bmp"}
 
 
 class UnsupportedSourceError(SiDocgenError):
@@ -97,6 +108,83 @@ def output_dir(job_id: str) -> Path:
     return job_dir(job_id) / "output"
 
 
+def manual_images_dir(job_id: str) -> Path:
+    """사용자 매뉴얼 화면 캡처 업로드 디렉토리 ({screen_ref}.{ext} 형태로 저장)."""
+    return job_dir(job_id) / "manual_images"
+
+
+def manual_screen_refs(user_manual_json: dict) -> list[str]:
+    """매뉴얼 JSON 에서 화면 캡처가 필요한 screen_ref 목록을 순서대로(중복 제거) 추출한다."""
+    refs: list[str] = []
+    for section in user_manual_json.get("sections", []):
+        for step in section.get("steps", []):
+            ref = step.get("screen_ref") or ""
+            if ref and ref not in refs:
+                refs.append(ref)
+    return refs
+
+
+def is_safe_screen_ref(ref: str) -> bool:
+    """screen_ref 가 파일명 스템으로 안전한지 검사한다 (경로 탈출·구분자 차단)."""
+    return bool(ref) and "/" not in ref and "\\" not in ref and ".." not in ref
+
+
+class UnknownScreenRefError(SiDocgenError):
+    """매뉴얼에 존재하지 않는 screen_ref 로 이미지를 업로드하려 할 때 발생 (API 404)."""
+
+
+class UnsupportedImageError(SiDocgenError):
+    """지원하지 않는 이미지 형식 업로드 시 발생 (API 400)."""
+
+
+def save_manual_image(
+    job_id: str, user_manual_json: dict, screen_ref: str, *, filename: str, data: bytes
+) -> Path:
+    """화면 캡처 이미지를 {screen_ref}.{ext} 로 저장한다.
+
+    screen_ref 가 매뉴얼에 실제 존재하고 파일명 스템으로 안전할 때만 저장한다.
+    같은 screen_ref 의 기존 이미지(확장자 무관)는 먼저 제거해 단일 매칭을 보장한다.
+    """
+    if not is_safe_screen_ref(screen_ref) or screen_ref not in manual_screen_refs(user_manual_json):
+        raise UnknownScreenRefError(f"매뉴얼에 없는 화면 참조입니다: {screen_ref}")
+    suffix = Path(filename).suffix.lower()
+    if suffix not in SUPPORTED_IMAGE_SUFFIXES:
+        raise UnsupportedImageError(
+            f"지원하지 않는 이미지 형식입니다: {suffix or '(확장자 없음)'} "
+            f"(지원: {', '.join(sorted(SUPPORTED_IMAGE_SUFFIXES))})"
+        )
+    images = manual_images_dir(job_id)
+    images.mkdir(parents=True, exist_ok=True)
+    for ext in SUPPORTED_IMAGE_SUFFIXES:  # 기존 변형 제거 (확장자가 바뀌어도 1개만 유지)
+        prior = images / f"{screen_ref}{ext}"
+        if prior.is_file():
+            prior.unlink()
+    target = images / f"{screen_ref}{suffix}"
+    target.write_bytes(data)
+    return target
+
+
+def list_manual_images(job_id: str, user_manual_json: dict) -> dict[str, bool]:
+    """매뉴얼의 screen_ref 별로 업로드된 이미지 존재 여부를 반환한다 (검수 UI 표시용)."""
+    refs = manual_screen_refs(user_manual_json)
+    uploaded = collect_images(manual_images_dir(job_id), refs)
+    return {ref: ref in uploaded for ref in refs}
+
+
+def delete_manual_image(job_id: str, screen_ref: str) -> bool:
+    """업로드된 화면 캡처를 삭제한다. 삭제했으면 True, 없었으면 False."""
+    if not is_safe_screen_ref(screen_ref):
+        return False
+    images = manual_images_dir(job_id)
+    removed = False
+    for ext in SUPPORTED_IMAGE_SUFFIXES:
+        path = images / f"{screen_ref}{ext}"
+        if path.is_file():
+            path.unlink()
+            removed = True
+    return removed
+
+
 def render_job_outputs(
     job_id: str,
     scenario_json: dict,
@@ -105,12 +193,15 @@ def render_job_outputs(
     wbs_json: dict | None = None,
     table_spec_json: dict | None = None,
     interface_spec_json: dict | None = None,
+    user_manual_json: dict | None = None,
 ) -> JobRenderResult:
     """저장된(검수된) JSON 으로 산출물을 렌더링한다 (LLM 미사용).
 
     화면정의서 JSON 이 있으면 RTM 에 화면 ID 를 연결하고 pptx 도 렌더링한다.
     요구사항정의서 JSON 이 있으면(체인의 머리) RTM 요건명을 그것으로 채우고 docx 도 렌더링한다.
     WBS·테이블정의서·인터페이스정의서 JSON 이 있으면(체인과 독립) 각 xlsx 도 렌더링한다.
+    사용자 매뉴얼 JSON 이 있으면 업로드된 화면 캡처를 수집해 docx 로 렌더링한다
+    (없는 참조는 플레이스홀더).
     """
     scenario = TestScenarioDocument.model_validate(scenario_json)
     screen_spec = ScreenSpecDocument.model_validate(screen_spec_json) if screen_spec_json else None
@@ -156,6 +247,14 @@ def render_job_outputs(
             interface_spec, INTERFACE_SPEC_TEMPLATE, out / OUTPUT_FILES["interface_spec"]
         )
         kinds.append("interface_spec")
+    if user_manual_json:
+        manual = UserManualDocument.model_validate(user_manual_json)
+        refs = manual_screen_refs(user_manual_json)
+        images = collect_images(manual_images_dir(job_id), refs)  # 업로드 없으면 플레이스홀더
+        render_user_manual(
+            manual, USER_MANUAL_TEMPLATE, out / OUTPUT_FILES["user_manual"], images=images
+        )
+        kinds.append("user_manual")
 
     return JobRenderResult(
         unit_count=len(scenario.unit_test_cases),
@@ -180,6 +279,7 @@ def create_job(
     with_wbs: bool = False,
     with_table_spec: bool = False,
     with_interface_spec: bool = False,
+    with_user_manual: bool = False,
     start_date: str = "",
     requirement_spec_model: str | None = None,
     scenario_model: str | None = None,
@@ -187,6 +287,7 @@ def create_job(
     wbs_model: str | None = None,
     table_spec_model: str | None = None,
     interface_spec_model: str | None = None,
+    user_manual_model: str | None = None,
 ) -> Job:
     """업로드 파일을 저장하고 대기 상태 잡을 생성한다."""
     suffix = Path(filename).suffix.lower()
@@ -215,6 +316,7 @@ def create_job(
         with_wbs=with_wbs,
         with_table_spec=with_table_spec,
         with_interface_spec=with_interface_spec,
+        with_user_manual=with_user_manual,
         start_date=start_date or written_date,
         requirement_spec_model=requirement_spec_model or None,
         scenario_model=scenario_model or None,
@@ -222,6 +324,7 @@ def create_job(
         wbs_model=wbs_model or None,
         table_spec_model=table_spec_model or None,
         interface_spec_model=interface_spec_model or None,
+        user_manual_model=user_manual_model or None,
     )
     db.add(job)
     db.commit()
@@ -329,6 +432,12 @@ def run_job(job_id: str) -> None:
                     src, **cover, model=job.interface_spec_model
                 )
                 job.interface_spec_json = interface_spec.model_dump(mode="json")
+                db.commit()
+
+            if job.with_user_manual:
+                set_progress("user_manual")
+                manual = generate_user_manual(src, **cover, model=job.user_manual_model)
+                job.user_manual_json = manual.model_dump(mode="json")
                 db.commit()
 
             job.status = JobStatus.SUCCEEDED

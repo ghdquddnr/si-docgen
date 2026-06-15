@@ -32,6 +32,7 @@ const POSITIONS: Record<string, { x: number; y: number }> = {
   wbs: { x: 280, y: 360 },
   tableSpec: { x: 280, y: 500 },
   interfaceSpec: { x: 280, y: 640 },
+  userManual: { x: 280, y: 780 },
   rtm: { x: 840, y: 120 },
 };
 
@@ -40,6 +41,7 @@ const edges: Edge[] = [
   { id: "e-source-wbs", source: "source", target: "wbs", animated: true },
   { id: "e-source-tablespec", source: "source", target: "tableSpec", animated: true },
   { id: "e-source-ifspec", source: "source", target: "interfaceSpec", animated: true },
+  { id: "e-source-manual", source: "source", target: "userManual", animated: true },
   { id: "e-req-scenario", source: "requirement", target: "scenario", animated: true },
   { id: "e-req-screen", source: "requirement", target: "screen", animated: true },
   { id: "e-scenario-rtm", source: "scenario", target: "rtm" },
@@ -51,7 +53,15 @@ function today(): string {
 }
 
 // 진행 단계 순서(노드 보유 단계). progress 값이 이 중 어디인지로 노드 상태를 파생한다.
-const STAGES = ["requirements", "scenario", "screens", "wbs", "table_spec", "interface_spec"] as const;
+const STAGES = [
+  "requirements",
+  "scenario",
+  "screens",
+  "wbs",
+  "table_spec",
+  "interface_spec",
+  "user_manual",
+] as const;
 
 function nodeStatuses(running: boolean, ev: ProgressEvent | null) {
   const prog = ev?.progress ?? null;
@@ -76,6 +86,7 @@ function nodeStatuses(running: boolean, ev: ProgressEvent | null) {
     wbs: statusFor(3),
     tableSpec: statusFor(4),
     interfaceSpec: statusFor(5),
+    userManual: statusFor(6),
     output: ok ? "done" : fail ? "error" : "idle",
   };
 }
@@ -89,6 +100,7 @@ export default function CanvasPage() {
     wbs: "",
     tableSpec: "",
     interfaceSpec: "",
+    userManual: "",
   });
   const [startDate, setStartDate] = useState(today());
   const [cover, setCover] = useState<CoverInfo>({
@@ -176,15 +188,23 @@ export default function CanvasPage() {
             onModel: (m: string) => setModels((s) => ({ ...s, interfaceSpec: m })),
             disabled: running,
           };
+        case "userManual":
+          return {
+            title: "사용자 매뉴얼",
+            status: st.userManual,
+            model: models.userManual,
+            onModel: (m: string) => setModels((s) => ({ ...s, userManual: m })),
+            disabled: running,
+          };
         default:
           return { status: st.output, jobId, downloads, onRender: doRender, rendering };
       }
     },
-    [file, running, st.requirement, st.scenario, st.screen, st.wbs, st.tableSpec, st.interfaceSpec, st.output, models, jobId, downloads, rendering, doRender],
+    [file, running, st.requirement, st.scenario, st.screen, st.wbs, st.tableSpec, st.interfaceSpec, st.userManual, st.output, models, jobId, downloads, rendering, doRender],
   );
 
   const [rfNodes, setRfNodes, onNodesChange] = useNodesState<Node>(
-    ["source", "requirement", "scenario", "screen", "wbs", "tableSpec", "interfaceSpec", "rtm"].map((id) => ({
+    ["source", "requirement", "scenario", "screen", "wbs", "tableSpec", "interfaceSpec", "userManual", "rtm"].map((id) => ({
       id,
       type: id === "source" ? "source" : id === "rtm" ? "output" : "llm",
       position: POSITIONS[id],
@@ -210,6 +230,7 @@ export default function CanvasPage() {
         withWbs: true,
         withTableSpec: true,
         withInterfaceSpec: true,
+        withUserManual: true,
         startDate,
         requirementSpecModel: models.requirement,
         scenarioModel: models.scenario,
@@ -217,6 +238,7 @@ export default function CanvasPage() {
         wbsModel: models.wbs,
         tableSpecModel: models.tableSpec,
         interfaceSpecModel: models.interfaceSpec,
+        userManualModel: models.userManual,
       });
       setJobId(job.id);
       setRunning(true);

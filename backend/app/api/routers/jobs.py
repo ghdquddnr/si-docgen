@@ -13,14 +13,23 @@ from app.db.session import get_db
 from app.schemas.requirement_spec import RequirementSpecDocument
 from app.schemas.screen_spec import ScreenSpecDocument
 from app.schemas.test_scenario import TestScenarioDocument
+from app.schemas.user_manual import UserManualDocument
 from app.services import job_service
-from app.services.job_service import UnsupportedSourceError
+from app.services.job_service import (
+    UnknownScreenRefError,
+    UnsupportedImageError,
+    UnsupportedSourceError,
+)
 
 XLSX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 PPTX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
 DOCX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 # 다운로드 종류 → MIME 타입 (기본은 xlsx)
-DOWNLOAD_MEDIA_TYPES = {"screen_spec": PPTX_MEDIA_TYPE, "requirement_spec": DOCX_MEDIA_TYPE}
+DOWNLOAD_MEDIA_TYPES = {
+    "screen_spec": PPTX_MEDIA_TYPE,
+    "requirement_spec": DOCX_MEDIA_TYPE,
+    "user_manual": DOCX_MEDIA_TYPE,
+}
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +50,7 @@ async def create_job(
     with_wbs: Annotated[bool, Form()] = False,
     with_table_spec: Annotated[bool, Form()] = False,
     with_interface_spec: Annotated[bool, Form()] = False,
+    with_user_manual: Annotated[bool, Form()] = False,
     start_date: Annotated[str, Form()] = "",
     requirement_spec_model: Annotated[str, Form()] = "",
     scenario_model: Annotated[str, Form()] = "",
@@ -48,6 +58,7 @@ async def create_job(
     wbs_model: Annotated[str, Form()] = "",
     table_spec_model: Annotated[str, Form()] = "",
     interface_spec_model: Annotated[str, Form()] = "",
+    user_manual_model: Annotated[str, Form()] = "",
 ) -> Job:
     """원천 문서를 업로드하고 백그라운드 생성 잡을 시작한다.
 
@@ -69,6 +80,7 @@ async def create_job(
             with_wbs=with_wbs,
             with_table_spec=with_table_spec,
             with_interface_spec=with_interface_spec,
+            with_user_manual=with_user_manual,
             start_date=start_date,
             requirement_spec_model=requirement_spec_model,
             scenario_model=scenario_model,
@@ -76,6 +88,7 @@ async def create_job(
             wbs_model=wbs_model,
             table_spec_model=table_spec_model,
             interface_spec_model=interface_spec_model,
+            user_manual_model=user_manual_model,
         )
     except UnsupportedSourceError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -202,9 +215,82 @@ def get_interface_spec(job_id: str, db: Annotated[Session, Depends(get_db)]) -> 
     return job.interface_spec_json
 
 
+@router.get("/{job_id}/user-manual")
+def get_user_manual(job_id: str, db: Annotated[Session, Depends(get_db)]) -> dict:
+    """생성된 사용자 매뉴얼 JSON 을 반환한다 (with_user_manual 잡)."""
+    job = _require_job(db, job_id)
+    if job.user_manual_json is None:
+        raise HTTPException(status_code=409, detail="사용자 매뉴얼이 없습니다 (생성 잡이 아님)")
+    return job.user_manual_json
+
+
+@router.put("/{job_id}/user-manual", response_model=JobOut)
+def update_user_manual(
+    job_id: str,
+    user_manual: UserManualDocument,
+    db: Annotated[Session, Depends(get_db)],
+) -> Job:
+    """검수 화면에서 편집한 사용자 매뉴얼을 재검증 후 저장한다.
+
+    본문은 UserManualDocument 로 자동 검증되므로 스키마 위반(섹션/단계 0건 등)은 422 로 거부된다.
+    """
+    job = _require_job(db, job_id)
+    if job.user_manual_json is None:
+        raise HTTPException(status_code=409, detail="사용자 매뉴얼이 없습니다 (생성 잡이 아님)")
+    job.user_manual_json = user_manual.model_dump(mode="json")
+    db.commit()
+    db.refresh(job)
+    return job
+
+
+@router.get("/{job_id}/manual-images")
+def list_manual_images(job_id: str, db: Annotated[Session, Depends(get_db)]) -> dict[str, bool]:
+    """매뉴얼의 screen_ref 별 화면 캡처 업로드 여부를 반환한다 (검수 UI 표시용)."""
+    job = _require_job(db, job_id)
+    if job.user_manual_json is None:
+        raise HTTPException(status_code=409, detail="사용자 매뉴얼이 없습니다 (생성 잡이 아님)")
+    return job_service.list_manual_images(job_id, job.user_manual_json)
+
+
+@router.post("/{job_id}/manual-images/{screen_ref}", status_code=201)
+async def upload_manual_image(
+    job_id: str,
+    screen_ref: str,
+    file: Annotated[UploadFile, File(description="화면 캡처 이미지 (.png/.jpg 등)")],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, str]:
+    """특정 screen_ref 에 대응하는 화면 캡처 이미지를 업로드한다."""
+    job = _require_job(db, job_id)
+    if job.user_manual_json is None:
+        raise HTTPException(status_code=409, detail="사용자 매뉴얼이 없습니다 (생성 잡이 아님)")
+    content = await file.read()
+    try:
+        job_service.save_manual_image(
+            job_id,
+            job.user_manual_json,
+            screen_ref,
+            filename=file.filename or "image",
+            data=content,
+        )
+    except UnknownScreenRefError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except UnsupportedImageError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"screen_ref": screen_ref, "status": "uploaded"}
+
+
+@router.delete("/{job_id}/manual-images/{screen_ref}")
+def delete_manual_image(
+    job_id: str, screen_ref: str, db: Annotated[Session, Depends(get_db)]
+) -> dict[str, bool]:
+    """업로드된 화면 캡처를 삭제한다."""
+    _require_job(db, job_id)
+    return {"deleted": job_service.delete_manual_image(job_id, screen_ref)}
+
+
 @router.post("/{job_id}/render", response_model=RenderOut)
 def render_job(job_id: str, db: Annotated[Session, Depends(get_db)]) -> RenderOut:
-    """검수된 시나리오(+화면/요구사항/WBS/테이블/인터페이스정의서)를 재렌더링한다 (동기)."""
+    """검수된 시나리오(+화면/요구사항/WBS/테이블/인터페이스/매뉴얼)를 재렌더링한다 (동기)."""
     job = _require_job(db, job_id)
     if job.scenario_json is None:
         raise HTTPException(status_code=409, detail="렌더링할 시나리오가 없습니다")
@@ -216,6 +302,7 @@ def render_job(job_id: str, db: Annotated[Session, Depends(get_db)]) -> RenderOu
         job.wbs_json,
         job.table_spec_json,
         job.interface_spec_json,
+        job.user_manual_json,
     )
     return RenderOut(
         unit_count=result.unit_count,

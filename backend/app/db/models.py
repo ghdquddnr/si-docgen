@@ -59,6 +59,9 @@ class Job(Base):
         Boolean, default=False, server_default=false()
     )
     interface_spec_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # 사용자 매뉴얼 생성 여부·결과 JSON (체인과 독립적인 산출물). 화면 캡처는 별도 업로드
+    with_user_manual: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    user_manual_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     # 단계별 모델 오버라이드(잡 단위). 미지정이면 설정/기본 모델
     requirement_spec_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
     scenario_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
@@ -66,6 +69,7 @@ class Job(Base):
     wbs_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
     table_spec_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
     interface_spec_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    user_manual_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
     # 실패 시 사람이 읽을 오류 메시지
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

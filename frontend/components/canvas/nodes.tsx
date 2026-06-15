@@ -119,6 +119,7 @@ const DOWNLOAD_LABEL: Record<string, string> = {
   wbs: "WBS",
   table_spec: "테이블정의서",
   interface_spec: "인터페이스정의서",
+  user_manual: "사용자 매뉴얼",
 };
 
 export function OutputNode({ data }: NodeProps<OutputNodeType>) {
