@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     # 기본값은 개발 PC에 설치된 로컬 모델 기준이며 .env 로 전환한다
     llm_model: str = "ollama/gemma4:12b"
     # 단계별 모델 오버라이드 (미지정 시 llm_model 사용). 산출물별로 다른 모델을 쓸 때
+    proposal_model: str | None = None
     requirement_spec_model: str | None = None
     scenario_model: str | None = None
     screen_spec_model: str | None = None

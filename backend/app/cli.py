@@ -17,6 +17,7 @@ from app.exceptions import SiDocgenError
 from app.onboarding import KIND_HEADERS, analyze_xlsx_template, format_report
 from app.pipelines.generate_chain import ChainResult, generate_chain
 from app.pipelines.generate_interface_spec import generate_and_render_interface_spec
+from app.pipelines.generate_proposal import generate_and_render_proposal
 from app.pipelines.generate_table_spec import generate_and_render_table_spec
 from app.pipelines.generate_test_scenario import generate_test_scenario_and_rtm
 from app.pipelines.generate_user_manual import generate_and_render_user_manual
@@ -54,6 +55,17 @@ def _build_parser() -> argparse.ArgumentParser:
         help="요구사항정의서(docx)를 체인의 머리로 생성 — 확정 REQ ID 로 4종 연결",
     )
     gen.add_argument("--verbose", action="store_true", help="DEBUG 로그 출력 (프롬프트 본문 포함)")
+
+    pro = sub.add_parser("proposal", help="RFP(제안요청서)에서 제안서(pptx) 초안 생성")
+    pro.add_argument("--input", required=True, type=Path, help="RFP 경로 (.docx/.pdf/.md/.txt)")
+    pro.add_argument("--output", required=True, type=Path, help="출력 디렉토리")
+    pro.add_argument("--model", default=None, help="LLM 모델 오버라이드 (LiteLLM 형식)")
+    pro.add_argument("--project-name", default="프로젝트", help="표지 사업명/프로젝트명")
+    pro.add_argument("--system-name", default="시스템", help="표지 시스템명")
+    pro.add_argument("--author", default="제안사", help="표지 제안사")
+    pro.add_argument("--client", default="발주처", help="표지 발주처")
+    pro.add_argument("--date", default=date.today().isoformat(), help="표지 제안 일자 (기본: 오늘)")
+    pro.add_argument("--verbose", action="store_true", help="DEBUG 로그 출력")
 
     wbs = sub.add_parser("wbs", help="원천 문서에서 WBS(작업분해구조) 생성")
     wbs.add_argument("--input", required=True, type=Path, help="원천 문서 경로 (.docx/.pdf/.md)")
@@ -149,6 +161,33 @@ def _run_generate(args: argparse.Namespace) -> int:
         f"  통계: 요건 {result.requirement_count}건 / "
         f"단위 {result.unit_count}건 + 통합 {result.integration_count}건{screen_part}"
     )
+    return 0
+
+
+def _run_proposal(args: argparse.Namespace) -> int:
+    if args.model:
+        os.environ["SIDOCGEN_LLM_MODEL"] = args.model
+        get_settings.cache_clear()
+    logger.info("사용 모델: %s", get_settings().llm_model)
+
+    try:
+        result = generate_and_render_proposal(
+            args.input,
+            args.output,
+            project_name=args.project_name,
+            system_name=args.system_name,
+            author=args.author,
+            client=args.client,
+            written_date=args.date,
+        )
+    except SiDocgenError as exc:
+        logger.error("생성 실패: %s", exc)
+        return 1
+
+    print("\n생성 완료:")
+    print(f"  제안서: {result.proposal_path}")
+    print(f"  통계: 내용 슬라이드 {result.slide_count}개 / 불릿 {result.bullet_count}개")
+    print("  (표지·목차 슬라이드는 렌더러가 자동 생성)")
     return 0
 
 
@@ -277,6 +316,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     if args.command == "generate":
         return _run_generate(args)
+    if args.command == "proposal":
+        return _run_proposal(args)
     if args.command == "wbs":
         return _run_wbs(args)
     if args.command == "table-spec":

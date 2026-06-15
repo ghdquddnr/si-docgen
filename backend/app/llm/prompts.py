@@ -308,6 +308,59 @@ def build_user_manual_prompt(
     )
 
 
+PROPOSAL_SYSTEM = (
+    "당신은 한국 SI 프로젝트의 제안서 작성 전문가(제안 PM)다. "
+    "고객사 RFP(제안요청서)를 분석해 수주를 위한 제안서 초안을 작성한다. "
+    "반드시 지시된 JSON 스키마에 맞는 JSON 객체 하나만 출력한다."
+)
+
+PROPOSAL_PROMPT_TEMPLATE = """다음 RFP(제안요청서)를 분석하여 제안서 초안을 작성하라.
+
+[원천 문서: {filename}]
+{source_text}
+
+[작성 규칙]
+1. 출력은 아래 JSON 스키마를 만족하는 JSON 객체 하나만 출력한다. 설명 문장·마크다운 금지.
+2. slides 는 아래 표준 8개 섹션을 이 순서대로 빠짐없이 작성한다(목차 슬라이드는 렌더러가
+   자동 생성하므로 출력하지 않는다):
+   ① 사업 이해  ② 추진 전략  ③ 수행 방안  ④ 추진 일정  ⑤ 투입 조직
+   ⑥ 품질·보안 관리 방안  ⑦ 기대 효과  ⑧ 결론 및 제언
+3. 각 슬라이드의 bullets 는 핵심 메시지를 3~5개의 짧은 문장으로 작성한다(각 항목 한 줄).
+   RFP 의 요구사항·평가 기준에 근거해 발주처가 무엇을 원하는지에 답하도록 구체적으로 쓴다.
+4. RFP 에 근거가 없는 수치·고유명사를 지어내지 않는다. 일반론은 사업 맥락에 맞게 구체화한다.
+5. title(제안서 제목)은 사업명을 반영해 "OOO 구축 제안서" 형태로 작성한다.
+6. 모든 텍스트는 한국어로, 제안서다운 설득적이고 전문적인 어조로 작성한다.
+7. 표지 정보: project_name="{project_name}", system_name="{system_name}",
+   author(제안사)="{author}", client(발주처)="{client}", written_date="{written_date}".
+
+[출력 JSON 스키마]
+{schema_json}
+"""
+
+
+def build_proposal_prompt(
+    source: SourceDocument,
+    schema_cls: type[BaseModel],
+    *,
+    project_name: str,
+    system_name: str,
+    author: str,
+    client: str,
+    written_date: str,
+) -> str:
+    """제안서 생성 프롬프트를 조립한다. 표준 8개 섹션을 권장하며 목차는 렌더러가 만든다."""
+    return PROPOSAL_PROMPT_TEMPLATE.format(
+        filename=source.filename,
+        source_text=source_to_prompt_text(source),
+        schema_json=schema_to_prompt_json(schema_cls),
+        project_name=project_name,
+        system_name=system_name,
+        author=author,
+        client=client,
+        written_date=written_date,
+    )
+
+
 def build_interface_spec_prompt(
     source: SourceDocument,
     schema_cls: type[BaseModel],
