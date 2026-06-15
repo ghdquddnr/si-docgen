@@ -194,6 +194,7 @@ def render_job_outputs(
     table_spec_json: dict | None = None,
     interface_spec_json: dict | None = None,
     user_manual_json: dict | None = None,
+    templates: dict[str, Path] | None = None,
 ) -> JobRenderResult:
     """저장된(검수된) JSON 으로 산출물을 렌더링한다 (LLM 미사용).
 
@@ -201,7 +202,14 @@ def render_job_outputs(
     테스트 묶음(시나리오)이 있으면 test_scenario + RTM 을, 화면정의서가 함께 있으면 RTM 에
     화면 ID 를 연결하고 pptx 도 렌더링한다(REQ→SCR→TC 추적성). 요구사항정의서·WBS·테이블·
     인터페이스정의서·사용자 매뉴얼은 각자 독립 렌더링한다.
+
+    templates(종류→양식 경로)가 주어지면 그 양식으로, 없으면 기본 양식으로 렌더링한다.
     """
+    tpls = templates or {}
+
+    def tpl(kind: str, default: Path) -> Path:
+        return tpls.get(kind, default)
+
     scenario = TestScenarioDocument.model_validate(scenario_json) if scenario_json else None
     screen_spec = ScreenSpecDocument.model_validate(screen_spec_json) if screen_spec_json else None
     requirement_spec = (
@@ -220,7 +228,9 @@ def render_job_outputs(
         if scenario is not None:
             validate_requirement_consistency(requirement_spec, scenario, screen_spec)
         render_requirement_spec(
-            requirement_spec, REQUIREMENT_SPEC_TEMPLATE, out / OUTPUT_FILES["requirement_spec"]
+            requirement_spec,
+            tpl("requirement_spec", REQUIREMENT_SPEC_TEMPLATE),
+            out / OUTPUT_FILES["requirement_spec"],
         )
         kinds.append("requirement_spec")
 
@@ -230,34 +240,48 @@ def render_job_outputs(
             validate_screen_consistency(screen_spec, scenario)
         rtm = build_rtm_from_chain(scenario, screen_spec, requirement_spec)
         validate_rtm_consistency(rtm, scenario)
-        render_test_scenario(scenario, TEST_SCENARIO_TEMPLATE, out / OUTPUT_FILES["test_scenario"])
-        render_rtm(rtm, RTM_TEMPLATE, out / OUTPUT_FILES["rtm"])
+        render_test_scenario(
+            scenario,
+            tpl("test_scenario", TEST_SCENARIO_TEMPLATE),
+            out / OUTPUT_FILES["test_scenario"],
+        )
+        render_rtm(rtm, tpl("rtm", RTM_TEMPLATE), out / OUTPUT_FILES["rtm"])
         kinds.extend(["test_scenario", "rtm"])
         unit_count = len(scenario.unit_test_cases)
         integration_count = len(scenario.integration_test_cases)
         requirement_count = len(rtm.rows)
         if screen_spec is not None:
-            render_screen_spec(screen_spec, SCREEN_SPEC_TEMPLATE, out / OUTPUT_FILES["screen_spec"])
+            render_screen_spec(
+                screen_spec,
+                tpl("screen_spec", SCREEN_SPEC_TEMPLATE),
+                out / OUTPUT_FILES["screen_spec"],
+            )
             kinds.append("screen_spec")
             screen_count = len(screen_spec.screens)
     elif screen_spec is not None:
         # 시나리오 없이 화면정의서만 있는 경우(방어적): pptx 만 렌더
-        render_screen_spec(screen_spec, SCREEN_SPEC_TEMPLATE, out / OUTPUT_FILES["screen_spec"])
+        render_screen_spec(
+            screen_spec, tpl("screen_spec", SCREEN_SPEC_TEMPLATE), out / OUTPUT_FILES["screen_spec"]
+        )
         kinds.append("screen_spec")
         screen_count = len(screen_spec.screens)
 
     if wbs_json:
         wbs = WBSDocument.model_validate(wbs_json)
-        render_wbs(wbs, WBS_TEMPLATE, out / OUTPUT_FILES["wbs"])
+        render_wbs(wbs, tpl("wbs", WBS_TEMPLATE), out / OUTPUT_FILES["wbs"])
         kinds.append("wbs")
     if table_spec_json:
         table_spec = TableSpecDocument.model_validate(table_spec_json)
-        render_table_spec(table_spec, TABLE_SPEC_TEMPLATE, out / OUTPUT_FILES["table_spec"])
+        render_table_spec(
+            table_spec, tpl("table_spec", TABLE_SPEC_TEMPLATE), out / OUTPUT_FILES["table_spec"]
+        )
         kinds.append("table_spec")
     if interface_spec_json:
         interface_spec = InterfaceSpecDocument.model_validate(interface_spec_json)
         render_interface_spec(
-            interface_spec, INTERFACE_SPEC_TEMPLATE, out / OUTPUT_FILES["interface_spec"]
+            interface_spec,
+            tpl("interface_spec", INTERFACE_SPEC_TEMPLATE),
+            out / OUTPUT_FILES["interface_spec"],
         )
         kinds.append("interface_spec")
     if user_manual_json:
@@ -265,7 +289,10 @@ def render_job_outputs(
         refs = manual_screen_refs(user_manual_json)
         images = collect_images(manual_images_dir(job_id), refs)  # 업로드 없으면 플레이스홀더
         render_user_manual(
-            manual, USER_MANUAL_TEMPLATE, out / OUTPUT_FILES["user_manual"], images=images
+            manual,
+            tpl("user_manual", USER_MANUAL_TEMPLATE),
+            out / OUTPUT_FILES["user_manual"],
+            images=images,
         )
         kinds.append("user_manual")
 
@@ -301,6 +328,7 @@ def create_job(
     table_spec_model: str | None = None,
     interface_spec_model: str | None = None,
     user_manual_model: str | None = None,
+    template_ids: dict | None = None,
 ) -> Job:
     """업로드 파일을 저장하고 대기 상태 잡을 생성한다."""
     suffix = Path(filename).suffix.lower()
@@ -338,6 +366,7 @@ def create_job(
         table_spec_model=table_spec_model or None,
         interface_spec_model=interface_spec_model or None,
         user_manual_model=user_manual_model or None,
+        template_ids=template_ids or None,
     )
     db.add(job)
     db.commit()

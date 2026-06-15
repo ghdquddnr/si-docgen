@@ -70,9 +70,36 @@ class Job(Base):
     table_spec_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
     interface_spec_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
     user_manual_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    # 산출물 종류별 선택한 양식(템플릿) id 맵 {kind: template_id}. 없으면 기본 양식 사용
+    template_ids: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     # 실패 시 사람이 읽을 오류 메시지
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
     )
+
+
+class TemplateFolder(Base):
+    """양식 보관함 폴더 (회사/고객사별 분류용 트리). parent_id 로 계층 구성."""
+
+    __tablename__ = "template_folders"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    name: Mapped[str] = mapped_column(String(255))
+    parent_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class Template(Base):
+    """사용자가 업로드한 산출물 양식(템플릿) 1건. 구조는 기본 양식과 호환되어야 한다(B1)."""
+
+    __tablename__ = "templates"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    name: Mapped[str] = mapped_column(String(255))
+    # 산출물 종류 (test_scenario/rtm/requirement_spec/screen_spec/wbs/table_spec/...)
+    kind: Mapped[str] = mapped_column(String(32), index=True)
+    folder_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    original_filename: Mapped[str] = mapped_column(String(255))
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

@@ -1,5 +1,6 @@
 """생성 잡 라우터 — 업로드/생성, 상태 조회."""
 
+import json
 import logging
 from typing import Annotated
 
@@ -24,7 +25,7 @@ from app.schemas.requirement_spec import RequirementSpecDocument
 from app.schemas.screen_spec import ScreenSpecDocument
 from app.schemas.test_scenario import TestScenarioDocument
 from app.schemas.user_manual import UserManualDocument
-from app.services import job_service
+from app.services import job_service, templates_service
 from app.services.job_service import (
     UnknownScreenRefError,
     UnsupportedImageError,
@@ -69,13 +70,21 @@ async def create_job(
     table_spec_model: Annotated[str, Form()] = "",
     interface_spec_model: Annotated[str, Form()] = "",
     user_manual_model: Annotated[str, Form()] = "",
+    template_ids: Annotated[str, Form()] = "",
 ) -> Job:
     """원천 문서를 업로드하고 백그라운드 생성 잡을 시작한다.
 
     각 with_* 플래그는 독립 산출물을 가리킨다(문서별 메뉴 모델). with_screens 는 테스트 설계
     묶음(시나리오 + 화면정의서, RTM 은 렌더 시 파생)을 생성한다. *_model 은 모델 오버라이드.
+    template_ids 는 종류→양식 id JSON 문자열(미지정 종류는 기본 양식).
     """
     content = await file.read()
+    try:
+        parsed_template_ids = json.loads(template_ids) if template_ids else None
+    except json.JSONDecodeError as exc:
+        raise HTTPException(
+            status_code=400, detail="template_ids 형식이 올바르지 않습니다"
+        ) from exc
     try:
         job = job_service.create_job(
             db,
@@ -99,6 +108,7 @@ async def create_job(
             table_spec_model=table_spec_model,
             interface_spec_model=interface_spec_model,
             user_manual_model=user_manual_model,
+            template_ids=parsed_template_ids,
         )
     except UnsupportedSourceError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -332,6 +342,7 @@ def render_job(job_id: str, db: Annotated[Session, Depends(get_db)]) -> RenderOu
         job.table_spec_json,
         job.interface_spec_json,
         job.user_manual_json,
+        templates=templates_service.resolve_all(db, job.template_ids),
     )
     return RenderOut(
         unit_count=result.unit_count,
