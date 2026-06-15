@@ -215,6 +215,10 @@ export async function createJob(
   return parse<Job>(await fetch(`${API_BASE}/jobs`, { method: "POST", body: form }));
 }
 
+export async function listJobs(limit = 50): Promise<Job[]> {
+  return parse<Job[]>(await fetch(`${API_BASE}/jobs?limit=${limit}`));
+}
+
 export async function getJob(id: string): Promise<Job> {
   return parse<Job>(await fetch(`${API_BASE}/jobs/${id}`));
 }

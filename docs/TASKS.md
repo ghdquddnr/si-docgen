@@ -12,7 +12,7 @@
 ## 현재 상태
 
 - **현재 Phase**: 로드맵(Phase 0~4) + 백로그(B1~B7) 완료. **C 시리즈(엔터프라이즈 재편) 착수.**
-- **진행 중 태스크**: C2 — 프론트 엔터프라이즈 셸 + 대시보드 + 문서 메뉴 (C1 완료).
+- **진행 중 태스크**: C3 — 양식 보관함 (A + B1) (C1·C2 완료).
 - **차단 사항**: 없음.
 
 ---
@@ -39,10 +39,11 @@
 - 메모: **의미 변경** — 웹에서 `with_requirements`는 더 이상 4종 체인이 아니라 요건정의서 docx 단독(요청대로 분리). 요건정의서 기반 RTM 정식 요건명은 이제 CLI `generate_chain` 전용(웹 테스트 묶음 RTM 은 시나리오 파생 요건명 사용). 플래그 없는 잡은 산출물 없이 성공·렌더 409. 시나리오/렌더 단위 테스트는 잡을 DB 직접 시드(시나리오 단독 상태)로 검증. **CLI `generate_chain` 은 미변경**(전체 체인 유지).
 
 ### C2. 프론트 엔터프라이즈 셸 + 대시보드 + 문서 메뉴
-- [ ] 좌측 사이드바(단계별 그룹) + 상단바 셸(AppShell), slate+indigo 토큰 고도화.
-- [ ] 홈=대시보드(문서 메뉴 카드 + 최근 생성 이력 표). `/canvas` 라우트·`components/canvas/*` 삭제, 헤더 내비 정리.
-- [ ] 공통 업로드 컴포넌트 1개(메뉴별 설정 주입: 제목·입력 안내·생성 플래그·표지·모델) → 잡 생성 → SSE 진행 → 검수(기존 재사용) → 다운로드.
-- **AC**: lint/build 통과, 각 메뉴에서 해당 문서만 생성·검수·다운로드. 프리뷰 확인.
+- [x] 좌측 사이드바(단계별 그룹) + 상단바 셸 — `layout.tsx` 를 `Sidebar`+`Topbar` 셸로 교체. `components/Sidebar.tsx`(로고+대시보드+그룹 메뉴, usePathname 활성), `components/Topbar.tsx`(경로→제목), `components/Icon.tsx`(의존성 없는 라인 아이콘 8종).
+- [x] 홈=대시보드(`app/page.tsx`) — 단계별 메뉴 카드 그리드 + 최근 생성 이력 표(`listJobs`). `/canvas`·`components/canvas/*`·`AppHeader`·`AppFooter` 삭제.
+- [x] 메뉴 카탈로그 `lib/menus.ts`(단일 정의: 제안서[준비중]/요구사항정의서/테스트 설계/테이블/인터페이스/WBS/사용자 매뉴얼 — 그룹·입력·산출물·생성 플래그·아이콘). 공통 `components/generate/GenerateFlow.tsx`(업로드+표지+모델+WBS 시작일 → createJob(menu.build) → SSE 진행 → 검수 링크), 라우트 `app/generate/[key]/page.tsx`. `lib/api.ts` `listJobs(limit)` 추가.
+- **AC**: lint/build 통과. 프리뷰 DOM 검증 — 대시보드 사이드바 7메뉴·5단계 카드·최근 이력 8건 로드, 생성 화면(WBS 시작일·모델 select), 검수 화면(셸 내부 정상), 콘솔 에러 없음.
+- 메모: 검수 화면(`/jobs/[id]`)은 기존 그대로 재사용(잡이 가진 산출물 탭만 노출). 제안서 메뉴는 `available:false`→'준비 중'(C4). 스크린샷은 헤드리스 환경에서 backdrop-blur 로 타임아웃 → DOM 검증으로 대체. 라우트 타입 캐시(.next) 가 삭제된 /canvas 를 참조해 빌드 실패 → `.next` 삭제 후 재빌드.
 
 ### C3. 양식 보관함 (A + B1)
 - [ ] `Template`/폴더 트리 모델 + 마이그레이션, 템플릿 파일 저장(`data/templates/`), CRUD·트리 조회 API.
