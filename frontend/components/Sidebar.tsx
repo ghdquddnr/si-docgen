@@ -68,6 +68,19 @@ export default function Sidebar() {
             </div>
           );
         })}
+        <div className="mt-4 border-t border-slate-100 pt-3">
+          <Link
+            href="/templates"
+            className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${
+              pathname === "/templates"
+                ? "bg-indigo-50 font-medium text-indigo-700"
+                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            }`}
+          >
+            <Icon name="table" className="h-[18px] w-[18px]" />
+            양식 보관함
+          </Link>
+        </div>
       </nav>
 
       <div className="border-t border-slate-200 px-5 py-3">

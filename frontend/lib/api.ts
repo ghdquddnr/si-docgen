@@ -37,6 +37,7 @@ export interface CreateJobOptions {
   tableSpecModel?: string;
   interfaceSpecModel?: string;
   userManualModel?: string;
+  templateIds?: Record<string, string>; // 산출물 종류 → 선택한 양식 id
 }
 
 export interface CoverInfo {
@@ -212,6 +213,9 @@ export async function createJob(
   if (opts.tableSpecModel) form.append("table_spec_model", opts.tableSpecModel);
   if (opts.interfaceSpecModel) form.append("interface_spec_model", opts.interfaceSpecModel);
   if (opts.userManualModel) form.append("user_manual_model", opts.userManualModel);
+  if (opts.templateIds && Object.keys(opts.templateIds).length > 0) {
+    form.append("template_ids", JSON.stringify(opts.templateIds));
+  }
   return parse<Job>(await fetch(`${API_BASE}/jobs`, { method: "POST", body: form }));
 }
 
@@ -316,4 +320,77 @@ export function eventsUrl(id: string): string {
 
 export function downloadUrl(id: string, kind: string): string {
   return `${API_BASE}/jobs/${id}/download/${kind}`;
+}
+
+// ── 양식 보관함 ─────────────────────────────────────────────────────────────
+
+export interface Template {
+  id: string;
+  name: string;
+  kind: string;
+  folder_id: string | null;
+  original_filename: string;
+  created_at: string;
+}
+
+export interface TemplateFolder {
+  id: string;
+  name: string;
+  parent_id: string | null;
+  created_at: string;
+}
+
+export interface TemplateKind {
+  kind: string;
+  label: string;
+  ext: string;
+}
+
+export interface TemplateLibrary {
+  folders: TemplateFolder[];
+  templates: Template[];
+  kinds: TemplateKind[];
+}
+
+export async function getTemplateLibrary(): Promise<TemplateLibrary> {
+  return parse<TemplateLibrary>(await fetch(`${API_BASE}/templates`));
+}
+
+export async function createTemplateFolder(
+  name: string,
+  parentId: string | null = null,
+): Promise<TemplateFolder> {
+  return parse<TemplateFolder>(
+    await fetch(`${API_BASE}/templates/folders`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, parent_id: parentId }),
+    }),
+  );
+}
+
+export async function deleteTemplateFolder(id: string): Promise<void> {
+  await parse<unknown>(await fetch(`${API_BASE}/templates/folders/${id}`, { method: "DELETE" }));
+}
+
+export async function uploadTemplate(
+  file: File,
+  kind: string,
+  name = "",
+  folderId: string | null = null,
+): Promise<Template> {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("kind", kind);
+  if (name) form.append("name", name);
+  if (folderId) form.append("folder_id", folderId);
+  return parse<Template>(await fetch(`${API_BASE}/templates`, { method: "POST", body: form }));
+}
+
+export async function deleteTemplate(id: string): Promise<void> {
+  await parse<unknown>(await fetch(`${API_BASE}/templates/${id}`, { method: "DELETE" }));
+}
+
+export function defaultTemplateUrl(kind: string): string {
+  return `${API_BASE}/templates/default/${kind}`;
 }

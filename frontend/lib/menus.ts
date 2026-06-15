@@ -38,6 +38,7 @@ export interface DocMenu {
   icon: IconName;
   needsStartDate?: boolean;
   available: boolean; // 제안서는 C4 에서 제공 → false 면 '준비 중'
+  kinds: string[]; // 이 메뉴가 만드는 산출물 종류(양식 선택 대상). 백엔드 kind 와 일치
   build: (model: string, startDate: string) => CreateJobOptions;
 }
 
@@ -53,6 +54,7 @@ export const MENUS: DocMenu[] = [
     output: "제안서 PPTX 초안",
     icon: "proposal",
     available: false,
+    kinds: ["proposal"],
     build: () => ({}),
   },
   {
@@ -63,6 +65,7 @@ export const MENUS: DocMenu[] = [
     output: "요구사항정의서 docx",
     icon: "requirement",
     available: true,
+    kinds: ["requirement_spec"],
     build: (model) => ({ withRequirements: true, requirementSpecModel: model }),
   },
   {
@@ -73,6 +76,7 @@ export const MENUS: DocMenu[] = [
     output: "화면정의서 + 테스트시나리오 + RTM (추적성)",
     icon: "test",
     available: true,
+    kinds: ["test_scenario", "screen_spec", "rtm"],
     build: (model) => ({
       withScreens: true,
       scenarioModel: model,
@@ -87,6 +91,7 @@ export const MENUS: DocMenu[] = [
     output: "테이블정의서 xlsx",
     icon: "table",
     available: true,
+    kinds: ["table_spec"],
     build: (model) => ({ withTableSpec: true, tableSpecModel: model }),
   },
   {
@@ -97,6 +102,7 @@ export const MENUS: DocMenu[] = [
     output: "인터페이스정의서 xlsx",
     icon: "interface",
     available: true,
+    kinds: ["interface_spec"],
     build: (model) => ({ withInterfaceSpec: true, interfaceSpecModel: model }),
   },
   {
@@ -108,6 +114,7 @@ export const MENUS: DocMenu[] = [
     icon: "wbs",
     needsStartDate: true,
     available: true,
+    kinds: ["wbs"],
     build: (model, startDate) => ({ withWbs: true, wbsModel: model, startDate }),
   },
   {
@@ -118,6 +125,7 @@ export const MENUS: DocMenu[] = [
     output: "사용자 매뉴얼 docx (화면 캡처 삽입)",
     icon: "manual",
     available: true,
+    kinds: ["user_manual"],
     build: (model) => ({ withUserManual: true, userManualModel: model }),
   },
 ];

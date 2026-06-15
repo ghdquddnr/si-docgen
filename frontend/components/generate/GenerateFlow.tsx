@@ -4,7 +4,15 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { Icon } from "@/components/Icon";
-import { ApiError, createJob, eventsUrl, type CoverInfo, type ProgressEvent } from "@/lib/api";
+import {
+  ApiError,
+  createJob,
+  eventsUrl,
+  getTemplateLibrary,
+  type CoverInfo,
+  type ProgressEvent,
+  type TemplateLibrary,
+} from "@/lib/api";
 import { MODEL_PRESETS, type DocMenu } from "@/lib/menus";
 
 const STAGE_LABELS: Record<string, string> = {
@@ -61,8 +69,19 @@ function UploadForm({ menu, onCreated }: { menu: DocMenu; onCreated: (id: string
   });
   const [model, setModel] = useState("");
   const [startDate, setStartDate] = useState(today());
+  const [library, setLibrary] = useState<TemplateLibrary | null>(null);
+  const [templateIds, setTemplateIds] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    getTemplateLibrary()
+      .then(setLibrary)
+      .catch(() => setLibrary(null));
+  }, []);
+
+  // 이 메뉴가 만드는 종류 중 양식 보관함이 지원하는 것만 (라벨 포함)
+  const pickerKinds = (library?.kinds ?? []).filter((k) => menu.kinds.includes(k.kind));
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -73,7 +92,13 @@ function UploadForm({ menu, onCreated }: { menu: DocMenu; onCreated: (id: string
     setSubmitting(true);
     setError(null);
     try {
-      const job = await createJob(file, cover, menu.build(model, startDate));
+      const selected = Object.fromEntries(
+        Object.entries(templateIds).filter(([, v]) => v),
+      );
+      const job = await createJob(file, cover, {
+        ...menu.build(model, startDate),
+        templateIds: selected,
+      });
       onCreated(job.id);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "업로드에 실패했습니다.");
@@ -155,6 +180,39 @@ function UploadForm({ menu, onCreated }: { menu: DocMenu; onCreated: (id: string
           </select>
         </div>
       </div>
+
+      {pickerKinds.length > 0 && (
+        <div className="flex flex-col gap-3 rounded-lg border border-slate-200 p-4">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-medium text-slate-600">양식 선택</p>
+            <Link href="/templates" className="text-xs text-indigo-600 hover:text-indigo-700">
+              양식 보관함 관리 →
+            </Link>
+          </div>
+          {pickerKinds.map((k) => {
+            const options = (library?.templates ?? []).filter((t) => t.kind === k.kind);
+            return (
+              <label key={k.kind} className="flex items-center justify-between gap-3 text-sm">
+                <span className="text-slate-500">{k.label}</span>
+                <select
+                  value={templateIds[k.kind] ?? ""}
+                  onChange={(e) =>
+                    setTemplateIds((s) => ({ ...s, [k.kind]: e.target.value }))
+                  }
+                  className="w-56 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                >
+                  <option value="">기본 양식</option>
+                  {options.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            );
+          })}
+        </div>
+      )}
 
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 

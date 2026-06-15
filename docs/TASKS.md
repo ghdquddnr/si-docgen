@@ -12,7 +12,7 @@
 ## 현재 상태
 
 - **현재 Phase**: 로드맵(Phase 0~4) + 백로그(B1~B7) 완료. **C 시리즈(엔터프라이즈 재편) 착수.**
-- **진행 중 태스크**: C3 — 양식 보관함 (A + B1) (C1·C2 완료).
+- **진행 중 태스크**: C4 — 제안서(RFP→PPTX) 신규 (C1·C2·C3 완료).
 - **차단 사항**: 없음.
 
 ---
@@ -46,11 +46,11 @@
 - 메모: 검수 화면(`/jobs/[id]`)은 기존 그대로 재사용(잡이 가진 산출물 탭만 노출). 제안서 메뉴는 `available:false`→'준비 중'(C4). 스크린샷은 헤드리스 환경에서 backdrop-blur 로 타임아웃 → DOM 검증으로 대체. 라우트 타입 캐시(.next) 가 삭제된 /canvas 를 참조해 빌드 실패 → `.next` 삭제 후 재빌드.
 
 ### C3. 양식 보관함 (A + B1)
-- [ ] `Template`/폴더 트리 모델 + 마이그레이션, 템플릿 파일 저장(`data/templates/`), CRUD·트리 조회 API.
-- [ ] 업로드 시 종류별 구조 검증(xlsx=B7 분석기로 표지/헤더/STYLE_ROW 확인, docx=필수 docxtpl 태그, pptx=필수 shape 이름). 실패 시 안내. "기본 양식 내려받기" 제공.
-- [ ] 문서 생성 메뉴에 양식 선택(없으면 기본). 잡에 선택한 `template_id` 연동 → 렌더러에 해당 경로 전달.
-- [ ] 양식 관리 화면(트리 + 업로드/이동/삭제).
-- **AC**: 회사/고객사 폴더에 양식 저장·선택→생성, 미선택 시 기본. 잘못된 구조 거부. 골든/단위 테스트.
+- [x] **백엔드(C3a)**: `TemplateFolder`(parent_id 트리)·`Template`(kind별) 모델 + `jobs.template_ids` JSON + 마이그레이션(b2c3d4e5f6a7). `templates_service`(저장·검증·CRUD·경로 해석), 파일 저장 `data/templates/`. `/templates` 라우터(라이브러리 조회·폴더 CRUD·업로드·삭제·기본 양식 다운로드). `render_job_outputs(templates=종류→경로)` 로 선택 양식 렌더, 잡 생성 `template_ids`. e2e 8건(총 294).
+- [x] **검증(B1)**: 업로드 양식이 기본 양식과 **구조 마커 호환**인지 메모리에서 검증 — xlsx=시트명, docx=docxtpl 변수, pptx=도형명이 기본 양식 것을 모두 포함해야 함. 확장자 불일치/손상/누락 시 400 + 안내. (셀 위치까지의 깊은 검증·임의양식 자동매핑은 B2 후속.)
+- [x] **프론트(C3b)**: `api.ts` 양식 타입·CRUD + `CreateJobOptions.templateIds`. `/templates` 관리 화면(폴더 트리·업로드·삭제·기본 양식 내려받기), 사이드바 '양식 보관함' 링크. `GenerateFlow` 에 메뉴 종류별 양식 선택 피커(기본 양식 + 보관 양식). `menus.ts` 메뉴별 `kinds`.
+- **AC**: 회사/고객사 폴더에 양식 저장·선택→생성, 미선택 시 기본. 잘못된 구조 거부. lint/build 통과.
+- 메모: 로그인 없으니 배포 단위 단일 보관함. **프리뷰 검증**: 폴더 생성+커스텀 WBS 업로드(구조 동일→통과)→`/templates` 트리에 폴더·양식 표시, `/generate/wbs` 피커에 '기본 양식 + 데모회사 WBS 양식' 노출, 콘솔 에러 없음. Windows 파일 잠금 회피 위해 업로드 검증은 디스크 쓰기 전 메모리(BytesIO)에서 수행. 임의양식 자동매핑(B2, B7 분석기 연동)은 로드맵.
 
 ### C4. 제안서(RFP→PPTX) 신규 (Phase 0식)
 - [ ] 렌더러 PoC: `schemas/proposal.py`·`renderers/proposal_renderer.py`(python-pptx, 편집 가능 도형/텍스트)·`templates/proposal.pptx`(표준 SI 제안 목차)·골든/경계 → 사람 양식 검수.
