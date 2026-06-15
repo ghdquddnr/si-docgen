@@ -7,6 +7,7 @@ import { listJobs, type Job } from "@/lib/api";
 
 function jobLabel(job: Job): string {
   const parts: string[] = [];
+  if (job.with_proposal) parts.push("제안서");
   if (job.with_requirements) parts.push("요구사항정의서");
   if (job.with_screens) parts.push("테스트 설계");
   if (job.with_table_spec) parts.push("테이블정의서");
