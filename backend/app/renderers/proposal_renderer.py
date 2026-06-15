@@ -42,6 +42,13 @@ def render_proposal(doc: ProposalDocument, template_path: Path, output_path: Pat
     _fill_cover(prs.slides[COVER_SLIDE_INDEX], doc)
 
     standard = prs.slides[STANDARD_SLIDE_INDEX]
+
+    # 목차 슬라이드 — 섹션 제목에서 자동 구성(렌더러 책임, 항상 본문과 일치)
+    toc = _duplicate_slide(prs, standard)
+    _set_text(_find_shape(toc, "slide_title").text_frame, "목차")
+    toc_lines = [f"{i}. {s.title}" for i, s in enumerate(doc.slides, start=1)]
+    _set_bullets(_find_shape(toc, "slide_body").text_frame, toc_lines, marker="")
+
     for slide_data in doc.slides:
         new_slide = _duplicate_slide(prs, standard)
         _fill_slide(new_slide, slide_data)
@@ -92,13 +99,16 @@ def _korean_font(run, size: Pt, color: RGBColor) -> None:  # noqa: ANN001
     ea.set("typeface", _FONT_NAME)
 
 
-def _set_bullets(text_frame: TextFrame, bullets: list[str]) -> None:
-    """본문 텍스트 프레임을 불릿 문단으로 채운다 (각 불릿 = 한 문단, '• ' 머리표)."""
+def _set_bullets(text_frame: TextFrame, lines: list[str], marker: str = "• ") -> None:
+    """본문 텍스트 프레임을 문단으로 채운다 (각 줄 = 한 문단, marker 머리표).
+
+    marker 기본은 불릿('• '). 목차처럼 번호를 직접 넣을 때는 marker="" 로 호출한다.
+    """
     text_frame.clear()  # 문단 1개만 남는다
-    for i, bullet in enumerate(bullets):
+    for i, line in enumerate(lines):
         para = text_frame.paragraphs[0] if i == 0 else text_frame.add_paragraph()
         run = para.add_run()
-        run.text = f"• {bullet}"
+        run.text = f"{marker}{line}"
         _korean_font(run, _BULLET_SIZE, _BULLET_COLOR)
 
 

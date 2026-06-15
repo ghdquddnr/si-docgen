@@ -26,11 +26,21 @@ def _shape_text(slide, name: str) -> str:
     raise AssertionError(f"shape '{name}' 없음")
 
 
-def test_슬라이드_수_표지_플러스_내용(doc: ProposalDocument, tmp_path: Path) -> None:
+def test_슬라이드_수_표지_목차_내용(doc: ProposalDocument, tmp_path: Path) -> None:
     out = render_proposal(doc, TEMPLATE, tmp_path / "p.pptx")
     prs = Presentation(str(out))
-    # 표지 1 + 내용 7
-    assert len(prs.slides) == 1 + len(doc.slides) == 8
+    # 표지 1 + 목차 1 + 내용 7
+    assert len(prs.slides) == 2 + len(doc.slides) == 9
+
+
+def test_목차_슬라이드_자동생성(doc: ProposalDocument, tmp_path: Path) -> None:
+    out = render_proposal(doc, TEMPLATE, tmp_path / "p.pptx")
+    toc = list(Presentation(str(out)).slides)[1]
+    assert _shape_text(toc, "slide_title") == "목차"
+    body = _shape_text(toc, "slide_body")
+    # 모든 섹션 제목이 번호와 함께 목차에 나열됨
+    for i, s in enumerate(doc.slides, start=1):
+        assert f"{i}. {s.title}" in body
 
 
 def test_표지_정보_주입(doc: ProposalDocument, tmp_path: Path) -> None:
@@ -44,7 +54,8 @@ def test_표지_정보_주입(doc: ProposalDocument, tmp_path: Path) -> None:
 
 def test_내용_슬라이드_제목과_불릿(doc: ProposalDocument, tmp_path: Path) -> None:
     out = render_proposal(doc, TEMPLATE, tmp_path / "p.pptx")
-    content = list(Presentation(str(out)).slides)[1:]
+    # 표지(0)·목차(1) 다음부터 내용 슬라이드
+    content = list(Presentation(str(out)).slides)[2:]
     assert [_shape_text(s, "slide_title") for s in content] == [s.title for s in doc.slides]
 
     # 첫 내용 슬라이드의 본문에 모든 불릿이 포함됨
