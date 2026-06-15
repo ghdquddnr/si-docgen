@@ -431,3 +431,98 @@ export async function deleteTemplate(id: string): Promise<void> {
 export function defaultTemplateUrl(kind: string): string {
   return `${API_BASE}/templates/default/${kind}`;
 }
+
+// ── LLM 설정 ────────────────────────────────────────────────────────────────
+
+export interface LlmProvider {
+  provider: string;
+  label: string;
+  needs_key: boolean;
+}
+
+export interface LlmCredential {
+  id: string;
+  provider: string;
+  label: string;
+  key_preview: string;
+  created_at: string;
+}
+
+export interface LlmModelEntry {
+  id: string;
+  label: string;
+  provider: string;
+  model: string;
+  credential_id: string | null;
+  enabled: boolean;
+  created_at: string;
+}
+
+export async function getEncryptionStatus(): Promise<{ configured: boolean }> {
+  return parse(await fetch(`${API_BASE}/llm/encryption`));
+}
+
+export async function listLlmProviders(): Promise<LlmProvider[]> {
+  return parse(await fetch(`${API_BASE}/llm/providers`));
+}
+
+export async function listLlmCredentials(): Promise<LlmCredential[]> {
+  return parse(await fetch(`${API_BASE}/llm/credentials`));
+}
+
+export async function createLlmCredential(
+  provider: string,
+  apiKey: string,
+  label = "",
+): Promise<LlmCredential> {
+  return parse(
+    await fetch(`${API_BASE}/llm/credentials`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ provider, api_key: apiKey, label }),
+    }),
+  );
+}
+
+export async function deleteLlmCredential(id: string): Promise<void> {
+  await parse<unknown>(await fetch(`${API_BASE}/llm/credentials/${id}`, { method: "DELETE" }));
+}
+
+export async function listLlmModels(enabledOnly = false): Promise<LlmModelEntry[]> {
+  const q = enabledOnly ? "?enabled_only=true" : "";
+  return parse(await fetch(`${API_BASE}/llm/models${q}`));
+}
+
+export async function createLlmModel(input: {
+  label: string;
+  provider: string;
+  model: string;
+  credential_id?: string | null;
+}): Promise<LlmModelEntry> {
+  return parse(
+    await fetch(`${API_BASE}/llm/models`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    }),
+  );
+}
+
+export async function setLlmModelEnabled(id: string, enabled: boolean): Promise<LlmModelEntry> {
+  return parse(
+    await fetch(`${API_BASE}/llm/models/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled }),
+    }),
+  );
+}
+
+export async function deleteLlmModel(id: string): Promise<void> {
+  await parse<unknown>(await fetch(`${API_BASE}/llm/models/${id}`, { method: "DELETE" }));
+}
+
+export async function listOllamaTags(): Promise<string[]> {
+  const r = await parse<{ models: string[] }>(await fetch(`${API_BASE}/llm/ollama/tags`));
+  return r.models;
+}

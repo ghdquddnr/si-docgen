@@ -47,11 +47,17 @@ def complete_json(
     logger.debug("LLM 프롬프트(system=%s):\n%s", bool(system), prompt)
     start = time.monotonic()
     try:
+        # 레지스트리에 등록된 모델이면 저장된 키(상용)·엔드포인트(Ollama)를 주입한다.
+        # 없으면 빈 결과 → 설정·환경변수 기반 기존 동작으로 폴백.
+        from app.llm.registry import resolve_model_auth
+
+        auth = resolve_model_auth(model_name)
         response = completion(
             model=model_name,
             messages=messages,
             response_format=response_format,
-            api_base=settings.llm_api_base,
+            api_base=auth.get("api_base", settings.llm_api_base),
+            api_key=auth.get("api_key"),
             timeout=settings.llm_timeout,
         )
     except Exception as exc:  # litellm 은 벤더별 예외를 던지므로 광범위하게 잡아 변환한다

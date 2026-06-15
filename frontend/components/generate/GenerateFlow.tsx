@@ -9,11 +9,13 @@ import {
   createJob,
   eventsUrl,
   getTemplateLibrary,
+  listLlmModels,
   type CoverInfo,
+  type LlmModelEntry,
   type ProgressEvent,
   type TemplateLibrary,
 } from "@/lib/api";
-import { MODEL_PRESETS, type DocMenu } from "@/lib/menus";
+import { type DocMenu } from "@/lib/menus";
 
 const STAGE_LABELS: Record<string, string> = {
   queued: "대기 중",
@@ -73,6 +75,7 @@ function UploadForm({ menu, onCreated }: { menu: DocMenu; onCreated: (id: string
   const [startDate, setStartDate] = useState(today());
   const [library, setLibrary] = useState<TemplateLibrary | null>(null);
   const [templateIds, setTemplateIds] = useState<Record<string, string>>({});
+  const [models, setModels] = useState<LlmModelEntry[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -80,6 +83,9 @@ function UploadForm({ menu, onCreated }: { menu: DocMenu; onCreated: (id: string
     getTemplateLibrary()
       .then(setLibrary)
       .catch(() => setLibrary(null));
+    listLlmModels(true)
+      .then(setModels)
+      .catch(() => setModels([]));
   }, []);
 
   // 이 메뉴가 만드는 종류 중 양식 보관함이 지원하는 것만 (라벨 포함)
@@ -175,12 +181,22 @@ function UploadForm({ menu, onCreated }: { menu: DocMenu; onCreated: (id: string
             onChange={(e) => setModel(e.target.value)}
             className="field-input"
           >
-            {MODEL_PRESETS.map((m) => (
-              <option key={m.value} value={m.value}>
+            <option value="">기본 (설정값)</option>
+            {models.map((m) => (
+              <option key={m.id} value={m.model}>
                 {m.label}
               </option>
             ))}
           </select>
+          {models.length === 0 && (
+            <p className="mt-1 text-xs text-slate-400">
+              등록된 모델이 없습니다.{" "}
+              <Link href="/settings/llm" className="text-indigo-600 hover:text-indigo-700">
+                LLM 설정
+              </Link>
+              에서 추가하면 여기에 표시됩니다.
+            </p>
+          )}
         </div>
       </div>
 

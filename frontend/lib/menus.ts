@@ -2,14 +2,6 @@
 
 import type { CreateJobOptions } from "./api";
 
-export const MODEL_PRESETS = [
-  { value: "", label: "기본 (설정값)" },
-  { value: "ollama/gemma4:e4b", label: "gemma4:e4b (로컬)" },
-  { value: "ollama/gemma4:12b", label: "gemma4:12b (로컬)" },
-  { value: "ollama/qwen3:14b", label: "qwen3:14b (로컬)" },
-  { value: "anthropic/claude-sonnet-4-6", label: "claude-sonnet (상용)" },
-];
-
 export type IconName =
   | "dashboard"
   | "proposal"

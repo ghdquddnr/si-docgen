@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     user_manual_model: str | None = None
     # OpenAI 호환 게이트웨이 등 별도 엔드포인트 사용 시 지정 (Ollama 는 미지정 시 localhost:11434)
     llm_api_base: str | None = None
+    # Ollama 서버 주소 (모델 목록 조회·로컬 호출 기본 엔드포인트)
+    ollama_base_url: str = "http://localhost:11434"
+    # 저장된 API 키 암호화를 위한 마스터 키. 미설정 시 키 저장 기능 비활성(평문 저장 안 함)
+    secret_key: str | None = None
     # LLM 호출 1회 타임아웃 (초)
     llm_timeout: float = 120.0
     # 검증 실패 시 총 시도 횟수 (절대 원칙: 최대 3회)

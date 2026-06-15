@@ -11,9 +11,16 @@
 
 ## 현재 상태
 
-- **현재 Phase**: 로드맵(Phase 0~4) + 백로그(B1~B7) + **C 시리즈(엔터프라이즈 재편) 완료.**
-- **진행 중 태스크**: 없음 (C1~C5 완료, 2026-06-16 사용자 검수 합격).
+- **현재 Phase**: 로드맵(Phase 0~4) + 백로그(B1~B7) + C 시리즈 + **LLM 모델·키 관리(D1) 완료.**
+- **진행 중 태스크**: 없음.
 - **차단 사항**: 없음.
+
+## D1. LLM 모델·키 관리 (설정 화면)
+
+- [x] **백엔드**: `ApiCredential`(provider별 키 암호화 저장)·`LlmModel`(생성 모델 레지스트리) + 마이그레이션(d5a2b3c4e6f7). `app/llm/crypto.py`(Fernet, `SIDOCGEN_SECRET_KEY` 파생)·`app/llm/registry.py`(모델→키/엔드포인트 해석, 미등록 시 설정 폴백). `client.py` 가 호출 시 저장 키(상용)·`ollama_base_url`(로컬) 주입. `llm_settings_service`·`/llm` 라우터(providers/credentials/models CRUD, ollama/tags). e2e 7건.
+- [x] **프론트**: `/settings/llm` 화면(키 추가·삭제 마스킹, 모델 추가·활성토글·삭제, Ollama 조회), 사이드바 'LLM 설정' 링크. 각 생성 화면 '생성 모델' 셀렉트가 `GET /llm/models?enabled_only=true` 결과를 노출(하드코딩 프리셋 제거).
+- **AC**: 로컬(Ollama)+상용(OpenAI·Gemini·Anthropic·xAI Grok) 키 다중 저장(암호화), 모델 등록→생성 화면 셀렉트 반영. 백엔드 323 통과, 프론트 lint/build 통과.
+- 메모: **절대 원칙 5 완화**(CLAUDE.md 반영) — "모델명은 설정 파일에서만" → "설정 파일 **또는 DB 레지스트리**". LLM 호출은 여전히 LiteLLM 래퍼만 경유, 키는 평문 미저장(암호화)·응답/로그 마스킹. 키 저장에는 `SIDOCGEN_SECRET_KEY` 필요(미설정 시 UI 경고+400). 신규 의존성 `cryptography`(사용자 승인).
 
 ---
 

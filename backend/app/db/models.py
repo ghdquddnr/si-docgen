@@ -7,7 +7,7 @@ status 등 열거형은 native_enum=False 로 VARCHAR 저장 → PostgreSQL/MySQ
 from datetime import datetime
 from enum import StrEnum
 
-from sqlalchemy import JSON, Boolean, DateTime, String, Text, false, func
+from sqlalchemy import JSON, Boolean, DateTime, String, Text, false, func, true
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -94,6 +94,37 @@ class TemplateFolder(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     name: Mapped[str] = mapped_column(String(255))
     parent_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class ApiCredential(Base):
+    """상용 LLM 서비스의 API 키 1건 (provider 별 다중 저장 가능). 키는 암호화해 보관한다."""
+
+    __tablename__ = "api_credentials"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    # 제공자: openai / gemini / anthropic / xai (grok). ollama 는 키가 없어 등록하지 않는다
+    provider: Mapped[str] = mapped_column(String(32), index=True)
+    label: Mapped[str] = mapped_column(String(255))
+    # SIDOCGEN_SECRET_KEY 로 암호화된 API 키 (평문 저장 금지)
+    encrypted_key: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class LlmModel(Base):
+    """문서 생성 화면의 '생성 모델' 목록에 노출되는 사용자 등록 모델 1건."""
+
+    __tablename__ = "llm_models"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    label: Mapped[str] = mapped_column(String(255))
+    # 제공자: ollama / openai / gemini / anthropic / xai
+    provider: Mapped[str] = mapped_column(String(32), index=True)
+    # LiteLLM 모델 식별자 (예: ollama/gemma4:e4b, openai/gpt-4o, anthropic/claude-sonnet-4-6)
+    model: Mapped[str] = mapped_column(String(255))
+    # 사용할 API 키 (상용 제공자). 미지정 시 같은 provider 의 임의 키 사용. ollama 는 null
+    credential_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 

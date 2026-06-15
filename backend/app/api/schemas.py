@@ -82,3 +82,60 @@ class TemplateLibraryOut(BaseModel):
     folders: list[TemplateFolderOut]
     templates: list[TemplateOut]
     kinds: list[TemplateKindOut]
+
+
+class LlmProviderOut(BaseModel):
+    """선택 가능한 LLM 제공자."""
+
+    provider: str
+    label: str
+    needs_key: bool
+
+
+class LlmCredentialOut(BaseModel):
+    """저장된 API 키 (평문 미노출, 마스킹 미리보기만)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    provider: str
+    label: str
+    key_preview: str
+    created_at: datetime
+
+
+class LlmCredentialCreate(BaseModel):
+    """API 키 등록 요청."""
+
+    provider: str
+    label: str = ""
+    api_key: str
+
+
+class LlmModelOut(BaseModel):
+    """등록된 생성 모델."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    label: str
+    provider: str
+    model: str
+    credential_id: str | None
+    enabled: bool
+    created_at: datetime
+
+
+class LlmModelCreate(BaseModel):
+    """생성 모델 등록 요청."""
+
+    label: str = ""
+    provider: str
+    model: str
+    credential_id: str | None = None
+
+
+class LlmModelEnabledUpdate(BaseModel):
+    """모델 활성/비활성 토글 요청."""
+
+    enabled: bool

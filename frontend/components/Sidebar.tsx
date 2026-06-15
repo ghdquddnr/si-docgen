@@ -80,6 +80,17 @@ export default function Sidebar() {
             <Icon name="table" className="h-[18px] w-[18px]" />
             양식 보관함
           </Link>
+          <Link
+            href="/settings/llm"
+            className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${
+              pathname === "/settings/llm"
+                ? "bg-indigo-50 font-medium text-indigo-700"
+                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            }`}
+          >
+            <Icon name="settings" className="h-[18px] w-[18px]" />
+            LLM 설정
+          </Link>
         </div>
       </nav>
 

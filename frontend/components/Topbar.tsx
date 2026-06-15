@@ -11,6 +11,8 @@ function titleFor(pathname: string): string {
     return getMenu(key)?.title ?? "문서 생성";
   }
   if (pathname.startsWith("/jobs/")) return "검수";
+  if (pathname === "/templates") return "양식 보관함";
+  if (pathname === "/settings/llm") return "LLM 설정";
   return "si-docgen";
 }
 

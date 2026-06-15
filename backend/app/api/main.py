@@ -6,7 +6,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routers import events, health, jobs, templates
+from app.api.routers import events, health, jobs, llm, templates
 from app.config import get_settings
 
 app = FastAPI(
@@ -26,3 +26,4 @@ app.include_router(health.router)
 app.include_router(jobs.router)
 app.include_router(events.router)
 app.include_router(templates.router)
+app.include_router(llm.router)
