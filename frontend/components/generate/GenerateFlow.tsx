@@ -18,6 +18,7 @@ import { MODEL_PRESETS, type DocMenu } from "@/lib/menus";
 const STAGE_LABELS: Record<string, string> = {
   queued: "대기 중",
   parsing: "원천 문서 분석",
+  proposal: "제안서 생성",
   requirements: "요구사항정의서 생성",
   scenario: "테스트시나리오 생성",
   screens: "화면정의서 생성",
@@ -66,6 +67,7 @@ function UploadForm({ menu, onCreated }: { menu: DocMenu; onCreated: (id: string
     system_name: "",
     author: "",
     written_date: today(),
+    client: "",
   });
   const [model, setModel] = useState("");
   const [startDate, setStartDate] = useState(today());
@@ -111,7 +113,7 @@ function UploadForm({ menu, onCreated }: { menu: DocMenu; onCreated: (id: string
       <label className="field-label">{label}</label>
       <input
         type={type}
-        value={cover[key]}
+        value={cover[key] ?? ""}
         onChange={(e) => setCover({ ...cover, [key]: e.target.value })}
         className="field-input"
       />
@@ -152,8 +154,9 @@ function UploadForm({ menu, onCreated }: { menu: DocMenu; onCreated: (id: string
       <div className="grid grid-cols-2 gap-4">
         {field("프로젝트명", "project_name")}
         {field("시스템명", "system_name")}
-        {field("작성자", "author")}
+        {field(menu.needsClient ? "제안사" : "작성자", "author")}
         {field("작성일", "written_date", "date")}
+        {menu.needsClient && field("발주처", "client")}
         {menu.needsStartDate && (
           <div>
             <label className="field-label">WBS 시작일</label>

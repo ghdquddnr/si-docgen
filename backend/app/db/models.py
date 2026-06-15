@@ -39,6 +39,8 @@ class Job(Base):
     system_name: Mapped[str] = mapped_column(String(255), default="시스템")
     author: Mapped[str] = mapped_column(String(255), default="작성자")
     written_date: Mapped[str] = mapped_column(String(10), default="")
+    # 발주처(client) — 제안서 표지에 쓰인다. 다른 산출물에서는 비어 있어도 무방
+    client: Mapped[str] = mapped_column(String(255), default="", server_default="")
     # 생성/검수된 테스트시나리오 JSON (검증 통과본). 미생성이면 null
     scenario_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     # 체인 실행 여부(화면정의서까지 생성) 및 생성된 화면정의서 JSON
@@ -62,6 +64,9 @@ class Job(Base):
     # 사용자 매뉴얼 생성 여부·결과 JSON (체인과 독립적인 산출물). 화면 캡처는 별도 업로드
     with_user_manual: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     user_manual_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # 제안서(RFP→PPTX) 생성 여부·결과 JSON (체인과 독립적인 산출물)
+    with_proposal: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    proposal_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     # 단계별 모델 오버라이드(잡 단위). 미지정이면 설정/기본 모델
     requirement_spec_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
     scenario_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
@@ -70,6 +75,7 @@ class Job(Base):
     table_spec_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
     interface_spec_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
     user_manual_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    proposal_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
     # 산출물 종류별 선택한 양식(템플릿) id 맵 {kind: template_id}. 없으면 기본 양식 사용
     template_ids: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     # 실패 시 사람이 읽을 오류 메시지

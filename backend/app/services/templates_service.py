@@ -23,6 +23,7 @@ from app.db.models import Template, TemplateFolder
 from app.exceptions import SiDocgenError
 from app.pipelines.generate_chain import REQUIREMENT_SPEC_TEMPLATE, SCREEN_SPEC_TEMPLATE
 from app.pipelines.generate_interface_spec import INTERFACE_SPEC_TEMPLATE
+from app.pipelines.generate_proposal import PROPOSAL_TEMPLATE
 from app.pipelines.generate_table_spec import TABLE_SPEC_TEMPLATE
 from app.pipelines.generate_test_scenario import RTM_TEMPLATE, TEST_SCENARIO_TEMPLATE
 from app.pipelines.generate_user_manual import USER_MANUAL_TEMPLATE
@@ -32,6 +33,7 @@ logger = logging.getLogger(__name__)
 
 # 산출물 종류 → 기본(번들) 양식 경로. 사용자 양식 검증·미선택 시 폴백의 기준.
 DEFAULT_TEMPLATES: dict[str, Path] = {
+    "proposal": PROPOSAL_TEMPLATE,
     "test_scenario": TEST_SCENARIO_TEMPLATE,
     "rtm": RTM_TEMPLATE,
     "requirement_spec": REQUIREMENT_SPEC_TEMPLATE,
@@ -44,6 +46,7 @@ DEFAULT_TEMPLATES: dict[str, Path] = {
 
 # 종류 → 파일 확장자
 KIND_EXT: dict[str, str] = {
+    "proposal": ".pptx",
     "test_scenario": ".xlsx",
     "rtm": ".xlsx",
     "wbs": ".xlsx",
@@ -56,6 +59,7 @@ KIND_EXT: dict[str, str] = {
 
 # 사람이 읽는 종류 이름 (UI 라벨)
 KIND_LABELS: dict[str, str] = {
+    "proposal": "제안서",
     "test_scenario": "테스트시나리오",
     "rtm": "요건추적표(RTM)",
     "requirement_spec": "요구사항정의서",

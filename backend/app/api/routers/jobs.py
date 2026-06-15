@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 from app.api.schemas import JobOut, RenderOut
 from app.db.models import Job
 from app.db.session import get_db
+from app.schemas.proposal import ProposalDocument
 from app.schemas.requirement_spec import RequirementSpecDocument
 from app.schemas.screen_spec import ScreenSpecDocument
 from app.schemas.test_scenario import TestScenarioDocument
@@ -37,6 +38,7 @@ PPTX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.presentationml.
 DOCX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 # 다운로드 종류 → MIME 타입 (기본은 xlsx)
 DOWNLOAD_MEDIA_TYPES = {
+    "proposal": PPTX_MEDIA_TYPE,
     "screen_spec": PPTX_MEDIA_TYPE,
     "requirement_spec": DOCX_MEDIA_TYPE,
     "user_manual": DOCX_MEDIA_TYPE,
@@ -56,12 +58,14 @@ async def create_job(
     system_name: Annotated[str, Form()] = "시스템",
     author: Annotated[str, Form()] = "작성자",
     written_date: Annotated[str, Form()] = "",
+    client: Annotated[str, Form()] = "",
     with_screens: Annotated[bool, Form()] = False,
     with_requirements: Annotated[bool, Form()] = False,
     with_wbs: Annotated[bool, Form()] = False,
     with_table_spec: Annotated[bool, Form()] = False,
     with_interface_spec: Annotated[bool, Form()] = False,
     with_user_manual: Annotated[bool, Form()] = False,
+    with_proposal: Annotated[bool, Form()] = False,
     start_date: Annotated[str, Form()] = "",
     requirement_spec_model: Annotated[str, Form()] = "",
     scenario_model: Annotated[str, Form()] = "",
@@ -70,6 +74,7 @@ async def create_job(
     table_spec_model: Annotated[str, Form()] = "",
     interface_spec_model: Annotated[str, Form()] = "",
     user_manual_model: Annotated[str, Form()] = "",
+    proposal_model: Annotated[str, Form()] = "",
     template_ids: Annotated[str, Form()] = "",
 ) -> Job:
     """원천 문서를 업로드하고 백그라운드 생성 잡을 시작한다.
@@ -94,12 +99,14 @@ async def create_job(
             system_name=system_name,
             author=author,
             written_date=written_date,
+            client=client,
             with_screens=with_screens,
             with_requirements=with_requirements,
             with_wbs=with_wbs,
             with_table_spec=with_table_spec,
             with_interface_spec=with_interface_spec,
             with_user_manual=with_user_manual,
+            with_proposal=with_proposal,
             start_date=start_date,
             requirement_spec_model=requirement_spec_model,
             scenario_model=scenario_model,
@@ -108,6 +115,7 @@ async def create_job(
             table_spec_model=table_spec_model,
             interface_spec_model=interface_spec_model,
             user_manual_model=user_manual_model,
+            proposal_model=proposal_model,
             template_ids=parsed_template_ids,
         )
     except UnsupportedSourceError as exc:
@@ -272,6 +280,35 @@ def update_user_manual(
     return job
 
 
+@router.get("/{job_id}/proposal")
+def get_proposal(job_id: str, db: Annotated[Session, Depends(get_db)]) -> dict:
+    """생성된 제안서 JSON 을 반환한다 (with_proposal 잡)."""
+    job = _require_job(db, job_id)
+    if job.proposal_json is None:
+        raise HTTPException(status_code=409, detail="제안서가 없습니다 (생성 잡이 아님)")
+    return job.proposal_json
+
+
+@router.put("/{job_id}/proposal", response_model=JobOut)
+def update_proposal(
+    job_id: str,
+    proposal: ProposalDocument,
+    db: Annotated[Session, Depends(get_db)],
+) -> Job:
+    """검수 화면에서 편집한 제안서를 재검증 후 저장한다.
+
+    본문은 ProposalDocument 로 자동 검증되므로 스키마 위반(슬라이드/불릿 0건 등)은 422 로 거부된다.
+    목차 슬라이드는 렌더 시 렌더러가 섹션 제목에서 자동 생성한다.
+    """
+    job = _require_job(db, job_id)
+    if job.proposal_json is None:
+        raise HTTPException(status_code=409, detail="제안서가 없습니다 (생성 잡이 아님)")
+    job.proposal_json = proposal.model_dump(mode="json")
+    db.commit()
+    db.refresh(job)
+    return job
+
+
 @router.get("/{job_id}/manual-images")
 def list_manual_images(job_id: str, db: Annotated[Session, Depends(get_db)]) -> dict[str, bool]:
     """매뉴얼의 screen_ref 별 화면 캡처 업로드 여부를 반환한다 (검수 UI 표시용)."""
@@ -330,6 +367,7 @@ def render_job(job_id: str, db: Annotated[Session, Depends(get_db)]) -> RenderOu
             job.table_spec_json,
             job.interface_spec_json,
             job.user_manual_json,
+            job.proposal_json,
         ]
     ):
         raise HTTPException(status_code=409, detail="렌더링할 산출물이 없습니다")
@@ -342,6 +380,7 @@ def render_job(job_id: str, db: Annotated[Session, Depends(get_db)]) -> RenderOu
         job.table_spec_json,
         job.interface_spec_json,
         job.user_manual_json,
+        proposal_json=job.proposal_json,
         templates=templates_service.resolve_all(db, job.template_ids),
     )
     return RenderOut(

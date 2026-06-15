@@ -22,12 +22,14 @@ class JobOut(BaseModel):
     system_name: str
     author: str
     written_date: str
+    client: str
     with_screens: bool
     with_requirements: bool
     with_wbs: bool
     with_table_spec: bool
     with_interface_spec: bool
     with_user_manual: bool
+    with_proposal: bool
     error: str | None
     created_at: datetime
 

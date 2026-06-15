@@ -21,6 +21,7 @@ from app.pipelines.generate_interface_spec import (
     INTERFACE_SPEC_TEMPLATE,
     generate_interface_spec,
 )
+from app.pipelines.generate_proposal import PROPOSAL_TEMPLATE, generate_proposal
 from app.pipelines.generate_requirement_spec import generate_requirement_spec
 from app.pipelines.generate_screen_spec import generate_screen_spec
 from app.pipelines.generate_table_spec import TABLE_SPEC_TEMPLATE, generate_table_spec
@@ -38,12 +39,14 @@ from app.pipelines.generate_wbs import WBS_TEMPLATE, generate_wbs
 from app.renderers.docx_renderer import render_requirement_spec
 from app.renderers.interface_spec_renderer import render_interface_spec
 from app.renderers.pptx_renderer import render_screen_spec
+from app.renderers.proposal_renderer import render_proposal
 from app.renderers.rtm_renderer import render_rtm
 from app.renderers.table_spec_renderer import render_table_spec
 from app.renderers.user_manual_renderer import render_user_manual
 from app.renderers.wbs_renderer import render_wbs
 from app.renderers.xlsx_renderer import render_test_scenario
 from app.schemas.interface_spec import InterfaceSpecDocument
+from app.schemas.proposal import ProposalDocument
 from app.schemas.requirement_spec import RequirementSpecDocument
 from app.schemas.rtm import (
     build_rtm_from_chain,
@@ -64,6 +67,7 @@ SUPPORTED_SUFFIXES = {".docx", ".pdf", ".md", ".markdown", ".txt"}
 
 # 다운로드 종류 → 산출물 파일명
 OUTPUT_FILES = {
+    "proposal": "proposal.pptx",
     "requirement_spec": "requirement_spec.docx",
     "test_scenario": "test_scenario.xlsx",
     "rtm": "rtm.xlsx",
@@ -194,6 +198,7 @@ def render_job_outputs(
     table_spec_json: dict | None = None,
     interface_spec_json: dict | None = None,
     user_manual_json: dict | None = None,
+    proposal_json: dict | None = None,
     templates: dict[str, Path] | None = None,
 ) -> JobRenderResult:
     """저장된(검수된) JSON 으로 산출물을 렌더링한다 (LLM 미사용).
@@ -295,6 +300,12 @@ def render_job_outputs(
             images=images,
         )
         kinds.append("user_manual")
+    if proposal_json:
+        proposal = ProposalDocument.model_validate(proposal_json)
+        render_proposal(
+            proposal, tpl("proposal", PROPOSAL_TEMPLATE), out / OUTPUT_FILES["proposal"]
+        )
+        kinds.append("proposal")
 
     return JobRenderResult(
         unit_count=unit_count,
@@ -314,12 +325,14 @@ def create_job(
     system_name: str,
     author: str,
     written_date: str,
+    client: str = "",
     with_screens: bool = False,
     with_requirements: bool = False,
     with_wbs: bool = False,
     with_table_spec: bool = False,
     with_interface_spec: bool = False,
     with_user_manual: bool = False,
+    with_proposal: bool = False,
     start_date: str = "",
     requirement_spec_model: str | None = None,
     scenario_model: str | None = None,
@@ -328,6 +341,7 @@ def create_job(
     table_spec_model: str | None = None,
     interface_spec_model: str | None = None,
     user_manual_model: str | None = None,
+    proposal_model: str | None = None,
     template_ids: dict | None = None,
 ) -> Job:
     """업로드 파일을 저장하고 대기 상태 잡을 생성한다."""
@@ -352,12 +366,14 @@ def create_job(
         system_name=system_name,
         author=author,
         written_date=written_date,
+        client=client,
         with_screens=with_screens,
         with_requirements=with_requirements,
         with_wbs=with_wbs,
         with_table_spec=with_table_spec,
         with_interface_spec=with_interface_spec,
         with_user_manual=with_user_manual,
+        with_proposal=with_proposal,
         start_date=start_date or written_date,
         requirement_spec_model=requirement_spec_model or None,
         scenario_model=scenario_model or None,
@@ -366,6 +382,7 @@ def create_job(
         table_spec_model=table_spec_model or None,
         interface_spec_model=interface_spec_model or None,
         user_manual_model=user_manual_model or None,
+        proposal_model=proposal_model or None,
         template_ids=template_ids or None,
     )
     db.add(job)
@@ -408,6 +425,18 @@ def run_job(job_id: str) -> None:
                 "author": job.author,
                 "written_date": job.written_date or "",
             }
+
+            # 제안서 (독립 메뉴) — RFP → 제안서 pptx. 발주처(client)는 표지에 들어간다
+            if job.with_proposal:
+                set_progress("proposal")
+                proposal = generate_proposal(
+                    src,
+                    **cover,
+                    client=job.client or "발주처",
+                    model=job.proposal_model,
+                )
+                job.proposal_json = proposal.model_dump(mode="json")
+                db.commit()
 
             # 요구사항정의서 (독립 메뉴) — 요건정의서 docx 만 생성
             if job.with_requirements:

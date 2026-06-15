@@ -12,12 +12,14 @@ export interface Job {
   system_name: string;
   author: string;
   written_date: string;
+  client: string;
   with_screens: boolean;
   with_requirements: boolean;
   with_wbs: boolean;
   with_table_spec: boolean;
   with_interface_spec: boolean;
   with_user_manual: boolean;
+  with_proposal: boolean;
   error: string | null;
   created_at: string;
 }
@@ -29,6 +31,7 @@ export interface CreateJobOptions {
   withTableSpec?: boolean;
   withInterfaceSpec?: boolean;
   withUserManual?: boolean;
+  withProposal?: boolean;
   startDate?: string;
   requirementSpecModel?: string;
   scenarioModel?: string;
@@ -37,6 +40,7 @@ export interface CreateJobOptions {
   tableSpecModel?: string;
   interfaceSpecModel?: string;
   userManualModel?: string;
+  proposalModel?: string;
   templateIds?: Record<string, string>; // 산출물 종류 → 선택한 양식 id
 }
 
@@ -45,6 +49,7 @@ export interface CoverInfo {
   system_name: string;
   author: string;
   written_date: string;
+  client?: string; // 발주처 — 제안서 표지에 사용
 }
 
 export interface RenderResult {
@@ -153,6 +158,21 @@ export interface UserManual {
   sections: ManualSection[];
 }
 
+export interface ProposalSlide {
+  title: string;
+  bullets: string[];
+}
+
+export interface Proposal {
+  project_name: string;
+  system_name: string;
+  author: string;
+  written_date: string;
+  title: string;
+  client: string;
+  slides: ProposalSlide[];
+}
+
 // screen_ref → 화면 캡처 업로드 여부
 export type ManualImageStatus = Record<string, boolean>;
 
@@ -199,12 +219,14 @@ export async function createJob(
   form.append("system_name", cover.system_name);
   form.append("author", cover.author);
   form.append("written_date", cover.written_date);
+  if (cover.client) form.append("client", cover.client);
   form.append("with_screens", String(opts.withScreens ?? false));
   form.append("with_requirements", String(opts.withRequirements ?? false));
   form.append("with_wbs", String(opts.withWbs ?? false));
   form.append("with_table_spec", String(opts.withTableSpec ?? false));
   form.append("with_interface_spec", String(opts.withInterfaceSpec ?? false));
   form.append("with_user_manual", String(opts.withUserManual ?? false));
+  form.append("with_proposal", String(opts.withProposal ?? false));
   if (opts.startDate) form.append("start_date", opts.startDate);
   if (opts.requirementSpecModel) form.append("requirement_spec_model", opts.requirementSpecModel);
   if (opts.scenarioModel) form.append("scenario_model", opts.scenarioModel);
@@ -213,6 +235,7 @@ export async function createJob(
   if (opts.tableSpecModel) form.append("table_spec_model", opts.tableSpecModel);
   if (opts.interfaceSpecModel) form.append("interface_spec_model", opts.interfaceSpecModel);
   if (opts.userManualModel) form.append("user_manual_model", opts.userManualModel);
+  if (opts.proposalModel) form.append("proposal_model", opts.proposalModel);
   if (opts.templateIds && Object.keys(opts.templateIds).length > 0) {
     form.append("template_ids", JSON.stringify(opts.templateIds));
   }
@@ -279,6 +302,20 @@ export async function putUserManual(id: string, manual: UserManual): Promise<Job
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(manual),
+    }),
+  );
+}
+
+export async function getProposal(id: string): Promise<Proposal> {
+  return parse<Proposal>(await fetch(`${API_BASE}/jobs/${id}/proposal`));
+}
+
+export async function putProposal(id: string, proposal: Proposal): Promise<Job> {
+  return parse<Job>(
+    await fetch(`${API_BASE}/jobs/${id}/proposal`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(proposal),
     }),
   );
 }

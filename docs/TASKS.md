@@ -12,7 +12,7 @@
 ## 현재 상태
 
 - **현재 Phase**: 로드맵(Phase 0~4) + 백로그(B1~B7) 완료. **C 시리즈(엔터프라이즈 재편) 착수.**
-- **진행 중 태스크**: C4 — 제안서(RFP→PPTX) 신규 (C1·C2·C3 완료).
+- **진행 중 태스크**: C5 — C 시리즈 통합 사람 검수 게이트 (C1·C2·C3·C4 완료).
 - **차단 사항**: 없음.
 
 ---
@@ -56,9 +56,10 @@
 - [x] **렌더러 PoC(C4-1)**: `schemas/proposal.py`·`renderers/proposal_renderer.py`(python-pptx, 편집 가능 텍스트 프레임)·`templates/proposal.pptx`(표지+표준 슬라이드, `scripts/templates/build_proposal_template.py`)·골든/경계. **목차 슬라이드는 렌더러가 섹션 제목에서 자동 생성**(번호 매김=렌더러 책임, 본문과 항상 일치). 표지→목차→내용 순.
 - [x] **LLM 생성(C4-2)**: `prompts.py` 제안서 프롬프트(표준 8섹션 권장, 목차는 LLM 미출력)·`pipelines/generate_proposal.py`(`generate_proposal`/`generate_and_render_proposal`/`ProposalResult`)·`config.proposal_model`·`scripts/eval/eval_proposal.py`.
 - [x] **CLI(C4-2)** `si-docgen proposal --input RFP --output ./out [--client 발주처]`.
-- [ ] 웹 연동(C4-3): `with_proposal`/`proposal_json`/`proposal_model` 컬럼+마이그레이션, `run_job` 분기, `render_job_outputs` 제안서 렌더, download kind `proposal`, `templates_service` 에 proposal 추가, `menus.ts` 제안서 `available:true`.
+- [x] **웹 연동(C4-3)**: `Job.client`/`with_proposal`/`proposal_json`/`proposal_model` 컬럼 + 마이그레이션(c4f1a2b3d5e6), `run_job` 제안서 분기(progress "proposal", client 주입), `render_job_outputs(proposal_json=...)` 제안서 렌더, download kind `proposal`(pptx), `GET/PUT /jobs/{id}/proposal`, `templates_service` 에 proposal(.pptx) 추가. 프론트: `menus.ts` 제안서 `available:true`·`needsClient`, `GenerateFlow` 발주처 필드(제안사 라벨), `api.ts` Proposal 타입·get/putProposal, `ProposalEditor`, **검수 페이지 비-시나리오 산출물 대응**(scenario 옵셔널화).
 - **AC**: RFP → 제안서 pptx 초안. 모킹 e2e + eval. 양식 사람 게이트.
-- 메모(C4-2): 표준 8섹션(①사업이해 ②추진전략 ③수행방안 ④추진일정 ⑤투입조직 ⑥품질·보안 ⑦기대효과 ⑧결론·제언)을 프롬프트로 권장. **목차는 프롬프트에서 명시적으로 LLM 출력 제외**(렌더러 자동 생성과 중복 방지). 제안서는 `client`(발주처) 표지 항목이 추가로 필요해 다른 산출물 cover 4종 + `client`. e2e 모킹 4건(생성·진행콜백·렌더 5슬라이드·CLI 종료코드), 총 310 통과·ruff 클린. 실모델 eval 은 API 키/로컬모델로 별도 수행. **다음: C4-3 웹 연동.**
+- 메모(C4-2): 표준 8섹션(①사업이해 ②추진전략 ③수행방안 ④추진일정 ⑤투입조직 ⑥품질·보안 ⑦기대효과 ⑧결론·제언)을 프롬프트로 권장. **목차는 프롬프트에서 명시적으로 LLM 출력 제외**(렌더러 자동 생성과 중복 방지). 제안서는 `client`(발주처) 표지 항목이 추가로 필요해 cover 4종 + `client`. CLI/eval 포함, 총 310 통과.
+- 메모(C4-3): **검수 페이지가 그동안 scenario 를 강제 로드**(WBS·테이블·인터페이스 단독 잡도 막혔던 잠재 버그)했던 것을 일반화 — `getScenario` 는 `with_screens` 일 때만, 첫 탭은 잡이 가진 산출물에서 자동 선택, 편집 탭 없는 잡(WBS 등)은 "렌더링·다운로드만" 패널 노출. 헤더는 `scenario.*`→`job.*`. 발주처는 `Job.client` 신규 컬럼(다른 산출물은 빈 값). run_job 의 client 미지정 시 "발주처" 폴백. **백엔드 316 통과(제안서 API e2e 6건)·ruff 클린, 프론트 lint/build 통과, 마이그레이션 dev DB 적용 확인, 프리뷰에서 `/generate/proposal` 폼(제안사·발주처·양식 피커) 정상.** 다음: C5 통합 게이트.
 
 ### C5. C 시리즈 통합 사람 검수 게이트
 - [ ] 대시보드~메뉴별 생성~양식 선택~제안서 전 과정 실브라우저 판정.

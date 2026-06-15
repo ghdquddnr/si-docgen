@@ -8,11 +8,13 @@ import {
   deleteManualImage,
   downloadUrl,
   getJob,
+  getProposal,
   getRequirementSpec,
   getScenario,
   getScreenSpec,
   getUserManual,
   listManualImages,
+  putProposal,
   putRequirementSpec,
   putScenario,
   putScreenSpec,
@@ -22,6 +24,7 @@ import {
   type CaseListKey,
   type Job,
   type ManualImageStatus,
+  type Proposal,
   type RenderResult,
   type RequirementSpec,
   type Scenario,
@@ -30,21 +33,23 @@ import {
   type UserManual,
 } from "@/lib/api";
 import { ManualEditor } from "@/components/review/ManualEditor";
+import { ProposalEditor } from "@/components/review/ProposalEditor";
 import { RequirementEditor } from "@/components/review/RequirementEditor";
 import { ScreenEditor } from "@/components/review/ScreenEditor";
 import { nextNumberedId } from "@/lib/review";
 
-type TabKey = "requirement" | "scenario" | "screen" | "manual";
+type TabKey = "proposal" | "requirement" | "scenario" | "screen" | "manual";
 
 export default function ReviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [job, setJob] = useState<Job | null>(null);
+  const [proposal, setProposal] = useState<Proposal | null>(null);
   const [requirementSpec, setRequirementSpec] = useState<RequirementSpec | null>(null);
   const [scenario, setScenario] = useState<Scenario | null>(null);
   const [screenSpec, setScreenSpec] = useState<ScreenSpec | null>(null);
   const [userManual, setUserManual] = useState<UserManual | null>(null);
   const [manualImages, setManualImages] = useState<ManualImageStatus>({});
-  const [tab, setTab] = useState<TabKey>("scenario");
+  const [tab, setTab] = useState<TabKey | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
@@ -58,13 +63,24 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
         const j = await getJob(id);
         setJob(j);
         await Promise.all([
-          getScenario(id).then(setScenario),
+          j.with_proposal ? getProposal(id).then(setProposal) : null,
+          j.with_screens ? getScenario(id).then(setScenario) : null,
           j.with_requirements ? getRequirementSpec(id).then(setRequirementSpec) : null,
           j.with_screens || j.with_requirements ? getScreenSpec(id).then(setScreenSpec) : null,
           j.with_user_manual ? getUserManual(id).then(setUserManual) : null,
           j.with_user_manual ? listManualImages(id).then(setManualImages) : null,
         ]);
-        if (j.with_requirements) setTab("requirement");
+        // 잡이 가진 산출물 중 첫 편집 탭을 활성화
+        const first: TabKey | null = j.with_proposal
+          ? "proposal"
+          : j.with_requirements
+            ? "requirement"
+            : j.with_screens
+              ? "scenario"
+              : j.with_user_manual
+                ? "manual"
+                : null;
+        setTab(first);
       } catch (e) {
         setLoadError(e instanceof ApiError ? e.message : "검수 데이터를 불러오지 못했습니다.");
       }
@@ -123,6 +139,7 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
 
   // 화면에 로드된(존재하는) 산출물을 모두 재검증·저장한다
   async function saveAll() {
+    if (proposal) await putProposal(id, proposal);
     if (requirementSpec) await putRequirementSpec(id, requirementSpec);
     if (scenario) await putScenario(id, scenario);
     if (screenSpec) await putScreenSpec(id, screenSpec);
@@ -196,7 +213,7 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
       </Centered>
     );
   }
-  if (!scenario || !job) {
+  if (!job) {
     return (
       <Centered>
         <span className="h-2 w-2 animate-pulse rounded-full bg-indigo-600" />
@@ -206,8 +223,9 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
   }
 
   const tabs: { key: TabKey; label: string }[] = [
+    proposal ? { key: "proposal" as const, label: "제안서" } : null,
     requirementSpec ? { key: "requirement" as const, label: "요구사항정의서" } : null,
-    { key: "scenario" as const, label: "테스트시나리오" },
+    scenario ? { key: "scenario" as const, label: "테스트시나리오" } : null,
     screenSpec ? { key: "screen" as const, label: "화면정의서" } : null,
     userManual ? { key: "manual" as const, label: "사용자 매뉴얼" } : null,
   ].filter((t): t is { key: TabKey; label: string } => t !== null);
@@ -222,17 +240,17 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-indigo-600">검수</p>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-              {scenario.project_name || "산출물 검수"}
+              {job.project_name || "산출물 검수"}
             </h1>
           </div>
           <dl className="flex gap-6 text-xs text-slate-500">
             <div>
               <dt className="text-slate-400">시스템</dt>
-              <dd className="font-medium text-slate-700">{scenario.system_name || "-"}</dd>
+              <dd className="font-medium text-slate-700">{job.system_name || "-"}</dd>
             </div>
             <div>
-              <dt className="text-slate-400">작성자</dt>
-              <dd className="font-medium text-slate-700">{scenario.author || "-"}</dd>
+              <dt className="text-slate-400">{job.with_proposal ? "제안사" : "작성자"}</dt>
+              <dd className="font-medium text-slate-700">{job.author || "-"}</dd>
             </div>
           </dl>
         </div>
@@ -256,11 +274,22 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
         </div>
       )}
 
+      {tabs.length === 0 && (
+        <div className="card p-6 text-sm text-slate-600">
+          이 산출물은 편집 화면 없이 생성됩니다. 아래 <b>저장 후 렌더링</b>으로 파일을 만들어
+          다운로드하세요.
+        </div>
+      )}
+
+      {tab === "proposal" && proposal && (
+        <ProposalEditor proposal={proposal} onChange={edited(setProposal)} />
+      )}
+
       {tab === "requirement" && requirementSpec && (
         <RequirementEditor spec={requirementSpec} onChange={edited(setRequirementSpec)} />
       )}
 
-      {tab === "scenario" && (
+      {tab === "scenario" && scenario && (
         <div className="flex flex-col gap-6">
           <CaseTable
             title="단위 테스트"
@@ -338,6 +367,7 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
 }
 
 const DOWNLOAD_LABEL: Record<string, string> = {
+  proposal: "제안서",
   requirement_spec: "요구사항정의서",
   test_scenario: "테스트시나리오",
   rtm: "요건추적표(RTM)",

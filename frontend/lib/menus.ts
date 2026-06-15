@@ -37,7 +37,8 @@ export interface DocMenu {
   output: string; // 산출물 설명
   icon: IconName;
   needsStartDate?: boolean;
-  available: boolean; // 제안서는 C4 에서 제공 → false 면 '준비 중'
+  needsClient?: boolean; // 발주처 입력이 필요한 메뉴(제안서)
+  available: boolean; // false 면 '준비 중'
   kinds: string[]; // 이 메뉴가 만드는 산출물 종류(양식 선택 대상). 백엔드 kind 와 일치
   build: (model: string, startDate: string) => CreateJobOptions;
 }
@@ -53,9 +54,10 @@ export const MENUS: DocMenu[] = [
     input: "RFP(제안요청서)",
     output: "제안서 PPTX 초안",
     icon: "proposal",
-    available: false,
+    needsClient: true,
+    available: true,
     kinds: ["proposal"],
-    build: () => ({}),
+    build: (model) => ({ withProposal: true, proposalModel: model }),
   },
   {
     key: "requirement",
