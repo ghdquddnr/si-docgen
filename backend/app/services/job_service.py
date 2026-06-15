@@ -187,7 +187,7 @@ def delete_manual_image(job_id: str, screen_ref: str) -> bool:
 
 def render_job_outputs(
     job_id: str,
-    scenario_json: dict,
+    scenario_json: dict | None = None,
     screen_spec_json: dict | None = None,
     requirement_spec_json: dict | None = None,
     wbs_json: dict | None = None,
@@ -197,13 +197,12 @@ def render_job_outputs(
 ) -> JobRenderResult:
     """저장된(검수된) JSON 으로 산출물을 렌더링한다 (LLM 미사용).
 
-    화면정의서 JSON 이 있으면 RTM 에 화면 ID 를 연결하고 pptx 도 렌더링한다.
-    요구사항정의서 JSON 이 있으면(체인의 머리) RTM 요건명을 그것으로 채우고 docx 도 렌더링한다.
-    WBS·테이블정의서·인터페이스정의서 JSON 이 있으면(체인과 독립) 각 xlsx 도 렌더링한다.
-    사용자 매뉴얼 JSON 이 있으면 업로드된 화면 캡처를 수집해 docx 로 렌더링한다
-    (없는 참조는 플레이스홀더).
+    각 산출물은 독립적이다 — 해당 JSON 이 있을 때만 렌더링한다(문서별 메뉴 모델).
+    테스트 묶음(시나리오)이 있으면 test_scenario + RTM 을, 화면정의서가 함께 있으면 RTM 에
+    화면 ID 를 연결하고 pptx 도 렌더링한다(REQ→SCR→TC 추적성). 요구사항정의서·WBS·테이블·
+    인터페이스정의서·사용자 매뉴얼은 각자 독립 렌더링한다.
     """
-    scenario = TestScenarioDocument.model_validate(scenario_json)
+    scenario = TestScenarioDocument.model_validate(scenario_json) if scenario_json else None
     screen_spec = ScreenSpecDocument.model_validate(screen_spec_json) if screen_spec_json else None
     requirement_spec = (
         RequirementSpecDocument.model_validate(requirement_spec_json)
@@ -211,28 +210,42 @@ def render_job_outputs(
         else None
     )
 
-    if requirement_spec is not None:
-        validate_requirement_consistency(requirement_spec, scenario, screen_spec)
-    elif screen_spec is not None:
-        validate_screen_consistency(screen_spec, scenario)
-
-    rtm = build_rtm_from_chain(scenario, screen_spec, requirement_spec)
-    validate_rtm_consistency(rtm, scenario)
-
     out = output_dir(job_id)
     out.mkdir(parents=True, exist_ok=True)
     kinds: list[str] = []
+    unit_count = integration_count = requirement_count = screen_count = 0
+
+    # 요구사항정의서 (독립 docx). 시나리오가 함께 있으면 요건↔시나리오/화면 추적성도 검증
     if requirement_spec is not None:
+        if scenario is not None:
+            validate_requirement_consistency(requirement_spec, scenario, screen_spec)
         render_requirement_spec(
             requirement_spec, REQUIREMENT_SPEC_TEMPLATE, out / OUTPUT_FILES["requirement_spec"]
         )
         kinds.append("requirement_spec")
-    render_test_scenario(scenario, TEST_SCENARIO_TEMPLATE, out / OUTPUT_FILES["test_scenario"])
-    render_rtm(rtm, RTM_TEMPLATE, out / OUTPUT_FILES["rtm"])
-    kinds.extend(["test_scenario", "rtm"])
-    if screen_spec is not None:
+
+    # 테스트 묶음: 시나리오 → test_scenario + RTM (+화면정의서 pptx, 추적성)
+    if scenario is not None:
+        if requirement_spec is None and screen_spec is not None:
+            validate_screen_consistency(screen_spec, scenario)
+        rtm = build_rtm_from_chain(scenario, screen_spec, requirement_spec)
+        validate_rtm_consistency(rtm, scenario)
+        render_test_scenario(scenario, TEST_SCENARIO_TEMPLATE, out / OUTPUT_FILES["test_scenario"])
+        render_rtm(rtm, RTM_TEMPLATE, out / OUTPUT_FILES["rtm"])
+        kinds.extend(["test_scenario", "rtm"])
+        unit_count = len(scenario.unit_test_cases)
+        integration_count = len(scenario.integration_test_cases)
+        requirement_count = len(rtm.rows)
+        if screen_spec is not None:
+            render_screen_spec(screen_spec, SCREEN_SPEC_TEMPLATE, out / OUTPUT_FILES["screen_spec"])
+            kinds.append("screen_spec")
+            screen_count = len(screen_spec.screens)
+    elif screen_spec is not None:
+        # 시나리오 없이 화면정의서만 있는 경우(방어적): pptx 만 렌더
         render_screen_spec(screen_spec, SCREEN_SPEC_TEMPLATE, out / OUTPUT_FILES["screen_spec"])
         kinds.append("screen_spec")
+        screen_count = len(screen_spec.screens)
+
     if wbs_json:
         wbs = WBSDocument.model_validate(wbs_json)
         render_wbs(wbs, WBS_TEMPLATE, out / OUTPUT_FILES["wbs"])
@@ -257,10 +270,10 @@ def render_job_outputs(
         kinds.append("user_manual")
 
     return JobRenderResult(
-        unit_count=len(scenario.unit_test_cases),
-        integration_count=len(scenario.integration_test_cases),
-        requirement_count=len(rtm.rows),
-        screen_count=len(screen_spec.screens) if screen_spec else 0,
+        unit_count=unit_count,
+        integration_count=integration_count,
+        requirement_count=requirement_count,
+        screen_count=screen_count,
         kinds=kinds,
     )
 
@@ -342,8 +355,8 @@ def create_job(
 def run_job(job_id: str) -> None:
     """백그라운드 실행: 원천 파싱 → LLM 생성 → JSON 저장. 자체 DB 세션을 연다.
 
-    with_screens 잡은 시나리오에 이어 화면정의서까지 생성하고 추적성을 검증한다.
-    진행값(progress): 비체인=parsing/generating, 체인=scenario/screens.
+    각 산출물은 요청된 것만 독립 생성한다(문서별 메뉴 모델). with_screens 묶음은 시나리오에
+    이어 화면정의서까지 생성하고 추적성을 검증한다. 진행값(progress)은 단계명으로 통지한다.
     """
     with SessionLocal() as db:
         job = db.get(Job, job_id)
@@ -367,6 +380,7 @@ def run_job(job_id: str) -> None:
                 "written_date": job.written_date or "",
             }
 
+            # 요구사항정의서 (독립 메뉴) — 요건정의서 docx 만 생성
             if job.with_requirements:
                 set_progress("requirements")
                 requirement_spec = generate_requirement_spec(
@@ -374,23 +388,9 @@ def run_job(job_id: str) -> None:
                 )
                 job.requirement_spec_json = requirement_spec.model_dump(mode="json")
                 db.commit()
-                req_pairs = [(r.req_id, r.name) for r in requirement_spec.requirements]
-                screen_req_ids = [r.req_id for r in requirement_spec.requirements]
 
-                set_progress("scenario")
-                scenario = generate_scenario(
-                    src, **cover, requirements=req_pairs, model=job.scenario_model
-                )
-                job.scenario_json = scenario.model_dump(mode="json")
-                db.commit()
-
-                set_progress("screens")
-                screen_spec = generate_screen_spec(
-                    src, **cover, req_ids=screen_req_ids, model=job.screen_spec_model
-                )
-                validate_requirement_consistency(requirement_spec, scenario, screen_spec)
-                job.screen_spec_json = screen_spec.model_dump(mode="json")
-            elif job.with_screens:
+            # 테스트 설계 묶음 (독립 메뉴) — 시나리오 + 화면정의서(추적성), RTM 은 렌더 시 파생
+            if job.with_screens:
                 set_progress("scenario")
                 scenario = generate_scenario(src, **cover, model=job.scenario_model)
                 job.scenario_json = scenario.model_dump(mode="json")
@@ -405,9 +405,7 @@ def run_job(job_id: str) -> None:
                 )
                 validate_screen_consistency(screen_spec, scenario)
                 job.screen_spec_json = screen_spec.model_dump(mode="json")
-            else:
-                scenario = generate_scenario(src, **cover, on_progress=set_progress)
-                job.scenario_json = scenario.model_dump(mode="json")
+                db.commit()
 
             if job.with_wbs:
                 set_progress("wbs")

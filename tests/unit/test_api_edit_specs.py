@@ -108,11 +108,22 @@ def _req_job(client: TestClient) -> str:
     return resp.json()["id"]
 
 
+def _screen_job(client: TestClient) -> str:
+    # 테스트 설계 묶음(with_screens): 시나리오 + 화면정의서 생성
+    resp = client.post(
+        "/jobs",
+        files={"file": ("req.md", b"REQ-001", "text/markdown")},
+        data={"with_screens": "true"},
+    )
+    assert resp.status_code == 201
+    return resp.json()["id"]
+
+
 # ── 화면정의서 PUT ─────────────────────────────────────────────────────────
 
 
 def test_화면정의서_편집_저장(client: TestClient) -> None:
-    job_id = _req_job(client)
+    job_id = _screen_job(client)
     edited = deepcopy(SCREEN_SPEC)
     edited["screens"][0]["screen_name"] = "로그인 화면(수정)"
     assert client.put(f"/jobs/{job_id}/screen-spec", json=edited).status_code == 200
@@ -122,7 +133,7 @@ def test_화면정의서_편집_저장(client: TestClient) -> None:
 
 
 def test_화면정의서_스키마_위반_422(client: TestClient) -> None:
-    job_id = _req_job(client)
+    job_id = _screen_job(client)
     bad = deepcopy(SCREEN_SPEC)
     bad["screens"][0]["screen_id"] = "X-001"  # SCR-xxx 형식 위반
     assert client.put(f"/jobs/{job_id}/screen-spec", json=bad).status_code == 422

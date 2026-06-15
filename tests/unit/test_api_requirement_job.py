@@ -117,7 +117,8 @@ def _req_job(client: TestClient) -> str:
     return resp.json()["id"]
 
 
-def test_요건_체인_잡_3종_JSON_저장(client: TestClient) -> None:
+def test_요건정의서_잡은_요건정의서만_저장(client: TestClient) -> None:
+    # 문서별 메뉴: 요구사항정의서 잡은 요건정의서 docx 만 생성(시나리오·화면 없음)
     job_id = _req_job(client)
     assert client.get(f"/jobs/{job_id}").json()["status"] == "succeeded"
 
@@ -125,8 +126,8 @@ def test_요건_체인_잡_3종_JSON_저장(client: TestClient) -> None:
         job = db.get(Job, job_id)
         assert job.status is JobStatus.SUCCEEDED
         assert job.requirement_spec_json is not None
-        assert job.scenario_json is not None
-        assert job.screen_spec_json is not None
+        assert job.scenario_json is None
+        assert job.screen_spec_json is None
         assert len(job.requirement_spec_json["requirements"]) == 2
 
 
@@ -137,32 +138,17 @@ def test_요구사항정의서_조회(client: TestClient) -> None:
     assert resp.json()["requirements"][0]["req_id"] == "REQ-001"
 
 
-def test_렌더_후_docx_다운로드_및_정식_요건명(client: TestClient) -> None:
+def test_렌더_후_docx_다운로드(client: TestClient) -> None:
     job_id = _req_job(client)
     render = client.post(f"/jobs/{job_id}/render")
     assert render.status_code == 200
-    body = render.json()
-    # 요건정의서 2건 → RTM 2행 (TC 없는 REQ-002 도 노출)
-    assert body["requirement_count"] == 2
-    assert set(body["downloads"]) == {
-        "requirement_spec",
-        "test_scenario",
-        "rtm",
-        "screen_spec",
-    }
+    # 요건정의서 잡은 docx 만 렌더(RTM·시나리오는 테스트 설계 메뉴 소관)
+    assert set(render.json()["downloads"]) == {"requirement_spec"}
 
     docx = client.get(f"/jobs/{job_id}/download/requirement_spec")
     assert docx.status_code == 200
     text = "\n".join(p.text for p in Document(io.BytesIO(docx.content)).paragraphs)
     assert "사용자 로그인" in text
-
-    # RTM 요건명이 요구사항정의서의 정식 요건명으로 채워짐
-    from openpyxl import load_workbook
-
-    rtm = client.get(f"/jobs/{job_id}/download/rtm")
-    ws = load_workbook(io.BytesIO(rtm.content))["요건추적표"]
-    assert ws.cell(row=10, column=1).value == "REQ-001"
-    assert ws.cell(row=10, column=2).value == "사용자 로그인"
 
 
 def test_비요건_잡은_요구사항정의서_없음_409(client: TestClient) -> None:

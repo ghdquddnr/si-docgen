@@ -90,13 +90,14 @@ def _wbs_job(client: TestClient) -> str:
     return resp.json()["id"]
 
 
-def test_WBS_잡_시나리오와_WBS_저장(client: TestClient) -> None:
+def test_WBS_잡_WBS만_저장(client: TestClient) -> None:
+    # 문서별 메뉴: WBS 잡은 시나리오 없이 WBS 만 생성한다
     job_id = _wbs_job(client)
     assert client.get(f"/jobs/{job_id}").json()["status"] == "succeeded"
     with SessionLocal() as db:
         job = db.get(Job, job_id)
         assert job.status is JobStatus.SUCCEEDED
-        assert job.scenario_json is not None
+        assert job.scenario_json is None
         assert job.wbs_json is not None
         assert job.wbs_json["tasks"][0]["id"] == "analysis"
 

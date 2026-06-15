@@ -5,6 +5,7 @@
 
 import io
 import json
+import uuid
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -16,7 +17,8 @@ from openpyxl import load_workbook
 from app.api.main import app
 from app.config import get_settings
 from app.db.base import Base
-from app.db.session import rebind_engine
+from app.db.models import Job, JobStatus
+from app.db.session import SessionLocal, rebind_engine
 
 MOCK_SCENARIO: dict[str, Any] = {
     "project_name": "P",
@@ -53,9 +55,19 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClie
 
 
 def _completed_job(client: TestClient) -> str:
-    return client.post("/jobs", files={"file": ("req.md", b"REQ-001", "text/markdown")}).json()[
-        "id"
-    ]
+    # 시나리오만 보유한 완료 잡을 직접 시드한다(렌더/다운로드 엔드포인트 단위 검증용)
+    job_id = uuid.uuid4().hex
+    with SessionLocal() as db:
+        db.add(
+            Job(
+                id=job_id,
+                input_filename="req.md",
+                status=JobStatus.SUCCEEDED,
+                scenario_json=json.loads(json.dumps(MOCK_SCENARIO)),
+            )
+        )
+        db.commit()
+    return job_id
 
 
 def test_렌더링_후_다운로드(client: TestClient) -> None:

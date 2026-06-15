@@ -36,6 +36,22 @@ MOCK_SCENARIO: dict[str, Any] = {
     "integration_test_cases": [],
 }
 
+MOCK_SCREEN_SPEC: dict[str, Any] = {
+    "project_name": "P",
+    "system_name": "S",
+    "author": "A",
+    "written_date": "2026-06-14",
+    "screens": [
+        {
+            "screen_id": "SCR-001",
+            "screen_name": "로그인",
+            "menu_path": "홈 > 로그인",
+            "req_ids": ["REQ-001"],
+            "fields": [{"no": 1, "name": "ID", "field_type": "텍스트박스", "required": True}],
+        }
+    ],
+}
+
 
 @pytest.fixture
 def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
@@ -43,17 +59,21 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClie
     get_settings.cache_clear()
     engine = rebind_engine(f"sqlite:///{tmp_path / 't.db'}")
     Base.metadata.create_all(engine)
-    monkeypatch.setattr(
-        "app.llm.generate.complete_json",
-        lambda *a, **k: json.dumps(MOCK_SCENARIO, ensure_ascii=False),
-    )
+
+    def fake(prompt: str, *, system: str | None = None, json_schema=None, model=None) -> str:
+        payload = MOCK_SCREEN_SPEC if system and "화면" in system else MOCK_SCENARIO
+        return json.dumps(payload, ensure_ascii=False)
+
+    monkeypatch.setattr("app.llm.generate.complete_json", fake)
     yield TestClient(app)
     get_settings.cache_clear()
 
 
 def test_업로드_생성_성공(client: TestClient) -> None:
     files = {"file": ("req.md", b"# requirements\nREQ-001", "text/markdown")}
-    resp = client.post("/jobs", files=files, data={"project_name": "P", "author": "A"})
+    resp = client.post(
+        "/jobs", files=files, data={"project_name": "P", "author": "A", "with_screens": "true"}
+    )
     assert resp.status_code == 201
     body = resp.json()
     assert body["status"] in {"succeeded", "running", "pending"}
@@ -66,7 +86,7 @@ def test_업로드_생성_성공(client: TestClient) -> None:
 
 def test_생성_결과_DB_저장(client: TestClient) -> None:
     files = {"file": ("req.md", b"REQ-001 sample", "text/markdown")}
-    job_id = client.post("/jobs", files=files).json()["id"]
+    job_id = client.post("/jobs", files=files, data={"with_screens": "true"}).json()["id"]
 
     with SessionLocal() as db:
         job = db.get(Job, job_id)
@@ -74,6 +94,30 @@ def test_생성_결과_DB_저장(client: TestClient) -> None:
         assert job.status is JobStatus.SUCCEEDED
         assert job.scenario_json is not None
         assert job.scenario_json["unit_test_cases"][0]["tc_id"] == "TC-001"
+
+
+def test_플래그_없는_잡은_산출물_없이_완료(client: TestClient) -> None:
+    # 문서별 메뉴 모델: 생성 플래그가 없으면 아무 산출물도 만들지 않는다(강제 시나리오 제거)
+    files = {"file": ("req.md", b"REQ-001", "text/markdown")}
+    job_id = client.post("/jobs", files=files).json()["id"]
+    with SessionLocal() as db:
+        job = db.get(Job, job_id)
+        assert job.status is JobStatus.SUCCEEDED
+        assert job.scenario_json is None
+    # 렌더할 산출물이 없으면 409
+    assert client.post(f"/jobs/{job_id}/render").status_code == 409
+
+
+def test_잡_목록_조회(client: TestClient) -> None:
+    # 대시보드 최근 이력용 GET /jobs — 목록 반환 + limit 동작
+    files = {"file": ("req.md", b"REQ-001", "text/markdown")}
+    first = client.post("/jobs", files=files, data={"with_screens": "true"}).json()["id"]
+    second = client.post("/jobs", files=files, data={"with_wbs": "true"}).json()["id"]
+
+    resp = client.get("/jobs")
+    assert resp.status_code == 200
+    assert {first, second} <= {j["id"] for j in resp.json()}
+    assert len(client.get("/jobs?limit=1").json()) == 1
 
 
 def test_미지원_확장자_400(client: TestClient) -> None:

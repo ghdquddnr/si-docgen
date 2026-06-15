@@ -5,6 +5,7 @@
 
 import copy
 import json
+import uuid
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -53,8 +54,19 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClie
 
 
 def _create_completed_job(client: TestClient) -> str:
-    files = {"file": ("req.md", b"REQ-001", "text/markdown")}
-    return client.post("/jobs", files=files).json()["id"]
+    # 시나리오만 보유한 완료 잡을 직접 시드한다(시나리오 엔드포인트 단위 검증용)
+    job_id = uuid.uuid4().hex
+    with SessionLocal() as db:
+        db.add(
+            Job(
+                id=job_id,
+                input_filename="req.md",
+                status=JobStatus.SUCCEEDED,
+                scenario_json=copy.deepcopy(MOCK_SCENARIO),
+            )
+        )
+        db.commit()
+    return job_id
 
 
 def test_시나리오_조회(client: TestClient) -> None:

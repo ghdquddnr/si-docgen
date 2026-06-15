@@ -3,8 +3,18 @@
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    UploadFile,
+)
 from fastapi.responses import FileResponse
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.schemas import JobOut, RenderOut
@@ -62,8 +72,8 @@ async def create_job(
 ) -> Job:
     """원천 문서를 업로드하고 백그라운드 생성 잡을 시작한다.
 
-    with_requirements=True 면 요구사항정의서를 머리로 둔 4종 체인을, with_screens=True 면
-    화면정의서까지의 3종 체인을 실행한다. *_model 은 단계별 모델 오버라이드.
+    각 with_* 플래그는 독립 산출물을 가리킨다(문서별 메뉴 모델). with_screens 는 테스트 설계
+    묶음(시나리오 + 화면정의서, RTM 은 렌더 시 파생)을 생성한다. *_model 은 모델 오버라이드.
     """
     content = await file.read()
     try:
@@ -95,6 +105,15 @@ async def create_job(
 
     background.add_task(job_service.run_job, job.id)
     return job
+
+
+@router.get("", response_model=list[JobOut])
+def list_jobs(
+    db: Annotated[Session, Depends(get_db)],
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+) -> list[Job]:
+    """최근 생성 잡 목록을 반환한다 (대시보드 최근 이력용, 생성일 내림차순)."""
+    return list(db.scalars(select(Job).order_by(Job.created_at.desc()).limit(limit)).all())
 
 
 @router.get("/{job_id}", response_model=JobOut)
@@ -290,10 +309,20 @@ def delete_manual_image(
 
 @router.post("/{job_id}/render", response_model=RenderOut)
 def render_job(job_id: str, db: Annotated[Session, Depends(get_db)]) -> RenderOut:
-    """검수된 시나리오(+화면/요구사항/WBS/테이블/인터페이스/매뉴얼)를 재렌더링한다 (동기)."""
+    """검수된 산출물(시나리오·화면·요구사항·WBS·테이블·인터페이스·매뉴얼)을 재렌더링한다 (동기)."""
     job = _require_job(db, job_id)
-    if job.scenario_json is None:
-        raise HTTPException(status_code=409, detail="렌더링할 시나리오가 없습니다")
+    if not any(
+        [
+            job.scenario_json,
+            job.requirement_spec_json,
+            job.screen_spec_json,
+            job.wbs_json,
+            job.table_spec_json,
+            job.interface_spec_json,
+            job.user_manual_json,
+        ]
+    ):
+        raise HTTPException(status_code=409, detail="렌더링할 산출물이 없습니다")
     result = job_service.render_job_outputs(
         job_id,
         job.scenario_json,
