@@ -26,22 +26,22 @@ NUM_COLUMNS = 8
 # 전위 순회 순서의 기대 행 (계층번호/태스크명/담당/시작/종료/공수/선행/산출물).
 # 일정은 start_date=2026-07-01 기준 달력일 + 선행 종료 다음 날 시작으로 계산.
 EXPECTED_ROWS = [
-    ["1", "분석", "", "2026-07-01", "2026-07-09", "18", "", ""],
-    ["1.1", "요구사항 분석", "PL", "2026-07-01", "2026-07-05", "10", "", "요구사항정의서"],
-    ["1.2", "화면 설계", "기획", "2026-07-06", "2026-07-09", "8", "1.1", "화면정의서"],
-    ["2", "개발", "", "2026-07-10", "2026-07-19", "36", "", ""],
-    ["2.1", "백엔드 개발", "백엔드 개발자", "2026-07-10", "2026-07-19", "20", "1.2", "API 모듈"],
+    ["1", "분석", "", "2026-07-01", "2026-07-13", "18", "", ""],
+    ["1.1", "요구사항 분석", "PL", "2026-07-01", "2026-07-07", "10", "", "요구사항정의서"],
+    ["1.2", "화면 설계", "기획", "2026-07-08", "2026-07-13", "8", "1.1", "화면정의서"],
+    ["2", "개발", "", "2026-07-14", "2026-07-28", "36", "", ""],
+    ["2.1", "백엔드 개발", "백엔드 개발자", "2026-07-14", "2026-07-28", "20", "1.2", "API 모듈"],
     [
         "2.2",
         "프론트엔드 개발",
         "프론트 개발자",
-        "2026-07-10",
-        "2026-07-17",
+        "2026-07-14",
+        "2026-07-24",
         "16",
         "1.2",
         "화면 구현체",
     ],
-    ["3", "통합 시험", "QA", "2026-07-20", "2026-07-24", "10", "2.1, 2.2", "테스트결과서"],
+    ["3", "통합 시험", "QA", "2026-07-29", "2026-08-04", "10", "2.1, 2.2", "테스트결과서"],
 ]
 
 EXPECTED_MERGES = {
@@ -104,11 +104,45 @@ def test_요약_태스크_공수_합산(rendered_path: Path) -> None:
 
 def test_선행_반영_일정(rendered_path: Path) -> None:
     ws = load_workbook(rendered_path)[SHEET_NAME]
-    # 1.2 화면 설계는 1.1(종료 07-05) 다음 날 07-06 시작
-    assert ws.cell(row=STYLE_ROW + 2, column=4).value == "2026-07-06"
-    # 3. 통합 시험은 선행(2.1 종료 07-19, 2.2 종료 07-17) 중 늦은 07-19 다음 날 07-20 시작
-    assert ws.cell(row=STYLE_ROW + 6, column=4).value == "2026-07-20"
+    # 1.2 화면 설계는 1.1(종료 07-07) 다음 날인 최초 영업일 07-08 시작
+    assert ws.cell(row=STYLE_ROW + 2, column=4).value == "2026-07-08"
+    # 3. 통합 시험은 선행(2.1 종료 07-28, 2.2 종료 07-24) 중 늦은 07-28 다음 날
+    # 최초 영업일인 07-29 시작
+    assert ws.cell(row=STYLE_ROW + 6, column=4).value == "2026-07-29"
     assert ws.cell(row=STYLE_ROW + 6, column=7).value == "2.1, 2.2"
+
+
+def test_공공_공휴일_일정_건너뛰기(tmp_path: Path) -> None:
+    # 2026년 개천절: 10/3(토) -> 대체공휴일 10/5(월)
+    # 10/2(금) 시작하는 2일짜리 작업 -> 10/2(금) 하루, 10/6(화) 하루 진행되어 10/6 종료되어야 함
+    from datetime import date
+
+    from app.renderers.wbs_renderer import render_wbs
+    from app.schemas.wbs import WBSDocument, WBSTask
+
+    doc = WBSDocument(
+        project_name="개천절 테스트",
+        system_name="시스템",
+        author="작성자",
+        written_date=date(2026, 6, 17),
+        start_date=date(2026, 10, 2),
+        tasks=[
+            WBSTask(
+                id="national-holiday-task",
+                name="개천절 걸친 작업",
+                duration_days=2,
+                effort_md=2.0,
+            )
+        ],
+    )
+    out = tmp_path / "national_holiday_wbs.xlsx"
+    render_wbs(doc, TEMPLATE_PATH, out)
+
+    ws = load_workbook(out)[SHEET_NAME]
+    # 시작일: 2026-10-02
+    assert ws.cell(row=STYLE_ROW, column=4).value == "2026-10-02"
+    # 종료일: 2026-10-06 (10/3~10/5 주말 및 대체공휴일 건너뜀)
+    assert ws.cell(row=STYLE_ROW, column=5).value == "2026-10-06"
 
 
 def test_병합_영역_보존(rendered_path: Path) -> None:

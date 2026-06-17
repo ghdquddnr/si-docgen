@@ -12,9 +12,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from app.config import get_settings
-from app.llm.generate import generate_validated
 from app.llm.prompts import TEST_SCENARIO_SYSTEM, build_test_scenario_prompt
-from app.pipelines.source_loader import load_source
+from app.pipelines.chunking import generate_map_reduce
+from app.pipelines.source_loader import SourceDocument, load_source
 from app.renderers.rtm_renderer import render_rtm
 from app.renderers.xlsx_renderer import render_test_scenario
 from app.schemas.rtm import build_rtm_from_scenario, validate_rtm_consistency
@@ -67,21 +67,26 @@ def generate_scenario(
     source = load_source(input_path)
 
     report("generating")
-    logger.info("테스트시나리오 LLM 생성 시작 (검증-재시도 루프)")
-    prompt = build_test_scenario_prompt(
+    logger.info("테스트시나리오 LLM 생성 시작 (Map-Reduce 적용 가능)")
+
+    def build_prompt(src: SourceDocument) -> str:
+        return build_test_scenario_prompt(
+            src,
+            TestScenarioDocument,
+            project_name=project_name,
+            system_name=system_name,
+            author=author,
+            written_date=written_date,
+            requirements=requirements,
+        )
+
+    scenario = generate_map_reduce(
         source,
         TestScenarioDocument,
-        project_name=project_name,
-        system_name=system_name,
-        author=author,
-        written_date=written_date,
-        requirements=requirements,
-    )
-    scenario = generate_validated(
-        prompt,
-        TestScenarioDocument,
+        build_prompt,
         system=TEST_SCENARIO_SYSTEM,
         model=model or get_settings().scenario_model,
+        on_progress=on_progress,
     )
     logger.info(
         "테스트시나리오 생성 완료: 단위 %d건 + 통합 %d건",

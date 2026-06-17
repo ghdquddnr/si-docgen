@@ -34,12 +34,16 @@ export function ManualEditor({
   images,
   onUpload,
   onDelete,
+  useMockupImages = false,
+  onUseMockupImagesChange,
 }: {
   manual: UserManual;
   onChange: (next: UserManual) => void;
   images: ManualImageStatus;
   onUpload: (screenRef: string, file: File) => void;
   onDelete: (screenRef: string) => void;
+  useMockupImages?: boolean;
+  onUseMockupImagesChange?: (val: boolean) => void;
 }) {
   function updateSection(si: number, field: keyof ManualSection, value: unknown) {
     const sections = [...manual.sections];
@@ -176,6 +180,22 @@ export function ManualEditor({
       >
         + 섹션 추가
       </button>
+
+      <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white p-3 text-xs">
+        <input
+          type="checkbox"
+          id="use-mockup-images"
+          checked={useMockupImages}
+          onChange={(e) => onUseMockupImagesChange?.(e.target.checked)}
+          className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+        />
+        <label htmlFor="use-mockup-images" className="font-semibold text-slate-700 cursor-pointer">
+          화면 설계서 목업 이미지 사용
+        </label>
+        <span className="text-slate-400">
+          (미업로드된 화면 자리에 화면정의서의 목업 영역을 고해상도 PNG로 자동 추출하여 삽입합니다)
+        </span>
+      </div>
 
       <ImagePanel refs={refs} images={images} onUpload={onUpload} onDelete={onDelete} />
     </section>

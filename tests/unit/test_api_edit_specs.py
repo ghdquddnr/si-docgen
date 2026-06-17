@@ -102,7 +102,7 @@ def _req_job(client: TestClient) -> str:
     resp = client.post(
         "/jobs",
         files={"file": ("req.md", b"REQ-001", "text/markdown")},
-        data={"with_requirements": "true"},
+        data={"with_requirements": "true", "author": "A"},
     )
     assert resp.status_code == 201
     return resp.json()["id"]
@@ -113,7 +113,7 @@ def _screen_job(client: TestClient) -> str:
     resp = client.post(
         "/jobs",
         files={"file": ("req.md", b"REQ-001", "text/markdown")},
-        data={"with_screens": "true"},
+        data={"with_screens": "true", "author": "A"},
     )
     assert resp.status_code == 201
     return resp.json()["id"]
@@ -166,3 +166,53 @@ def test_비요건_잡은_요구사항정의서_편집_409(client: TestClient) -
     resp = client.post("/jobs", files={"file": ("req.md", b"REQ-001", "text/markdown")})
     job_id = resp.json()["id"]
     assert client.put(f"/jobs/{job_id}/requirement-spec", json=REQUIREMENT_SPEC).status_code == 409
+
+
+def test_스펙_버전_이력_저장_목록_및_롤백(client: TestClient) -> None:
+    job_id = _req_job(client)
+
+    # 1. 최초 수정 발생 시 이전 버전(최초 AI 생성)이 버전 1로 보관되고,
+    # 새 수정 데이터가 버전 2로 인서트됨
+    edited1 = deepcopy(REQUIREMENT_SPEC)
+    edited1["requirements"][0]["name"] = "사용자 로그인(수정1)"
+    resp = client.put(f"/jobs/{job_id}/requirement-spec", json=edited1)
+    assert resp.status_code == 200
+
+    # 2. 버전 이력 목록 조회 검증
+    versions = client.get(f"/jobs/{job_id}/versions?spec_type=requirement_spec")
+    assert versions.status_code == 200
+    version_list = versions.json()
+    # 버전 2(현재 활성/수정본)와 버전 1(과거 백업/최초) 총 2개의 이력이 존재해야 함
+    assert len(version_list) == 2
+    assert version_list[0]["version"] == 2
+    assert version_list[1]["version"] == 1
+
+    # 3. 추가 수정 발생 시 버전 3가 생성되어 누적되는지 검증
+    edited2 = deepcopy(REQUIREMENT_SPEC)
+    edited2["requirements"][0]["name"] = "사용자 로그인(수정2)"
+    resp2 = client.put(f"/jobs/{job_id}/requirement-spec", json=edited2)
+    assert resp2.status_code == 200
+
+    versions = client.get(f"/jobs/{job_id}/versions?spec_type=requirement_spec")
+    assert len(versions.json()) == 3
+    assert versions.json()[0]["version"] == 3
+
+    # 4. 과거 버전 1 상세조회 검증
+    detail = client.get(f"/jobs/{job_id}/versions/1?spec_type=requirement_spec")
+    assert detail.status_code == 200
+    assert detail.json()["requirements"][0]["name"] == "사용자 로그인"  # 최초 버전 데이터 보존 확인
+
+    # 5. 과거 버전 1로 롤백 수행 검증
+    rollback = client.post(f"/jobs/{job_id}/rollback/1?spec_type=requirement_spec")
+    assert rollback.status_code == 200
+
+    # 롤백 적용 후 실시간 스펙 데이터가 롤백 완료 상태("사용자 로그인")로 돌아왔는지 검증
+    current_spec = client.get(f"/jobs/{job_id}/requirement-spec")
+    assert current_spec.status_code == 200
+    assert current_spec.json()["requirements"][0]["name"] == "사용자 로그인"
+
+    # 롤백 행위 또한 히스토리 상에서 최신 버전(버전 4)으로 백업 누적 확인
+    versions = client.get(f"/jobs/{job_id}/versions?spec_type=requirement_spec")
+    assert len(versions.json()) == 4
+    assert versions.json()[0]["version"] == 4
+    assert versions.json()[0]["updated_by"] == "A"

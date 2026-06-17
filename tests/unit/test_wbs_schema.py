@@ -58,14 +58,14 @@ def test_존재하지_않는_선행_거부() -> None:
         WBSDocument.model_validate(_doc([_leaf("a", preds=["없음"])]))
 
 
-def test_요약_태스크를_선행으로_참조하면_거부() -> None:
-    # 'sum' 은 요약 태스크(자식 보유) → 작업 태스크가 아니므로 선행 참조 불가
+def test_요약_태스크를_선행으로_참조해도_통과() -> None:
+    # 'sum' 은 요약 태스크(자식 보유) → 선행 참조 가능
     tasks = [
         {"id": "sum", "name": "요약", "children": [_leaf("sum-c")]},
         _leaf("b", preds=["sum"]),
     ]
-    with pytest.raises(ValidationError, match="선행"):
-        WBSDocument.model_validate(_doc(tasks))
+    doc = WBSDocument.model_validate(_doc(tasks))
+    assert len(doc.tasks) == 2
 
 
 def test_자기_자신_선행_거부() -> None:

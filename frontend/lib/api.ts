@@ -347,8 +347,9 @@ export async function deleteManualImage(id: string, screenRef: string): Promise<
   );
 }
 
-export async function renderJob(id: string): Promise<RenderResult> {
-  return parse<RenderResult>(await fetch(`${API_BASE}/jobs/${id}/render`, { method: "POST" }));
+export async function renderJob(id: string, useMockupImages = false): Promise<RenderResult> {
+  const query = useMockupImages ? "?use_mockup_images=true" : "";
+  return parse<RenderResult>(await fetch(`${API_BASE}/jobs/${id}/render${query}`, { method: "POST" }));
 }
 
 export function eventsUrl(id: string): string {
@@ -526,3 +527,39 @@ export async function listOllamaTags(): Promise<string[]> {
   const r = await parse<{ models: string[] }>(await fetch(`${API_BASE}/llm/ollama/tags`));
   return r.models;
 }
+
+// ── 버전 관리 API ─────────────────────────────────────────────────────────────
+
+export interface JobVersion {
+  version: number;
+  created_at: string;
+  updated_by: string;
+}
+
+export async function getJobVersions(id: string, specType: string): Promise<JobVersion[]> {
+  return parse<JobVersion[]>(
+    await fetch(`${API_BASE}/jobs/${id}/versions?spec_type=${encodeURIComponent(specType)}`),
+  );
+}
+
+export async function getJobVersionDetail(
+  id: string,
+  version: number,
+  specType: string,
+): Promise<any> {
+  return parse<any>(
+    await fetch(
+      `${API_BASE}/jobs/${id}/versions/${version}?spec_type=${encodeURIComponent(specType)}`,
+    ),
+  );
+}
+
+export async function rollbackJobSpec(id: string, version: number, specType: string): Promise<Job> {
+  return parse<Job>(
+    await fetch(
+      `${API_BASE}/jobs/${id}/rollback/${version}?spec_type=${encodeURIComponent(specType)}`,
+      { method: "POST" },
+    ),
+  );
+}
+

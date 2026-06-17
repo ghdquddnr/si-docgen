@@ -140,3 +140,18 @@ class Template(Base):
     folder_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
     original_filename: Mapped[str] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class JobHistory(Base):
+    """산출물 편집 히스토리 버전 기록 테이블."""
+
+    __tablename__ = "job_histories"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    job_id: Mapped[str] = mapped_column(String(36), index=True)
+    version: Mapped[int] = mapped_column(default=1, server_default="1")
+    # spec_type: requirement_spec, scenario, screen_spec, user_manual, proposal
+    spec_type: Mapped[str] = mapped_column(String(32), index=True)
+    data_json: Mapped[dict] = mapped_column(JSON)
+    updated_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

@@ -37,6 +37,7 @@ import { ProposalEditor } from "@/components/review/ProposalEditor";
 import { RequirementEditor } from "@/components/review/RequirementEditor";
 import { ScreenEditor } from "@/components/review/ScreenEditor";
 import { nextNumberedId } from "@/lib/review";
+import { VersionSelector } from "@/components/review/VersionSelector";
 
 type TabKey = "proposal" | "requirement" | "scenario" | "screen" | "manual";
 
@@ -49,6 +50,7 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
   const [screenSpec, setScreenSpec] = useState<ScreenSpec | null>(null);
   const [userManual, setUserManual] = useState<UserManual | null>(null);
   const [manualImages, setManualImages] = useState<ManualImageStatus>({});
+  const [useMockupImages, setUseMockupImages] = useState(false);
   const [tab, setTab] = useState<TabKey | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -66,7 +68,7 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
           j.with_proposal ? getProposal(id).then(setProposal) : null,
           j.with_screens ? getScenario(id).then(setScenario) : null,
           j.with_requirements ? getRequirementSpec(id).then(setRequirementSpec) : null,
-          j.with_screens || j.with_requirements ? getScreenSpec(id).then(setScreenSpec) : null,
+          j.with_screens ? getScreenSpec(id).then(setScreenSpec) : null,
           j.with_user_manual ? getUserManual(id).then(setUserManual) : null,
           j.with_user_manual ? listManualImages(id).then(setManualImages) : null,
         ]);
@@ -194,12 +196,35 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
     setSaveMsg(null);
     try {
       await saveAll();
-      setRender(await renderJob(id));
+      setRender(await renderJob(id, useMockupImages));
       setSaveMsg("렌더링이 완료되었습니다. 아래에서 다운로드하세요.");
     } catch (e) {
       setSaveErr(e instanceof ApiError ? `검증 실패: ${e.message}` : "렌더링에 실패했습니다.");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function handleRollbackSuccess(nextJob: Job, specType: TabKey) {
+    setJob(nextJob);
+    setRender(null);
+    setSaveMsg(null);
+    setSaveErr(null);
+    try {
+      if (specType === "proposal") {
+        setProposal(await getProposal(id));
+      } else if (specType === "requirement") {
+        setRequirementSpec(await getRequirementSpec(id));
+      } else if (specType === "scenario") {
+        setScenario(await getScenario(id));
+      } else if (specType === "screen") {
+        setScreenSpec(await getScreenSpec(id));
+      } else if (specType === "manual") {
+        setUserManual(await getUserManual(id));
+      }
+    } catch (e) {
+      console.error("롤백 후 데이터 로드 실패:", e);
+      setSaveErr("롤백 반영 중 오류가 발생했습니다. 새로고침을 시도하세요.");
     }
   }
 
@@ -282,44 +307,61 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
       )}
 
       {tab === "proposal" && proposal && (
-        <ProposalEditor proposal={proposal} onChange={edited(setProposal)} />
+        <div className="flex flex-col gap-4">
+          <VersionSelector jobId={id} specType="proposal" onRollback={(j) => handleRollbackSuccess(j, "proposal")} />
+          <ProposalEditor proposal={proposal} onChange={edited(setProposal)} />
+        </div>
       )}
 
       {tab === "requirement" && requirementSpec && (
-        <RequirementEditor spec={requirementSpec} onChange={edited(setRequirementSpec)} />
+        <div className="flex flex-col gap-4">
+          <VersionSelector jobId={id} specType="requirement_spec" onRollback={(j) => handleRollbackSuccess(j, "requirement")} />
+          <RequirementEditor spec={requirementSpec} onChange={edited(setRequirementSpec)} />
+        </div>
       )}
 
       {tab === "scenario" && scenario && (
-        <div className="flex flex-col gap-6">
-          <CaseTable
-            title="단위 테스트"
-            cases={scenario.unit_test_cases}
-            onChange={(i, f, v) => updateCase("unit_test_cases", i, f, v)}
-            onAdd={() => addCase("unit_test_cases")}
-            onDelete={(i) => deleteCase("unit_test_cases", i)}
-          />
-          <CaseTable
-            title="통합 테스트"
-            cases={scenario.integration_test_cases}
-            onChange={(i, f, v) => updateCase("integration_test_cases", i, f, v)}
-            onAdd={() => addCase("integration_test_cases")}
-            onDelete={(i) => deleteCase("integration_test_cases", i)}
-          />
+        <div className="flex flex-col gap-4">
+          <VersionSelector jobId={id} specType="scenario" onRollback={(j) => handleRollbackSuccess(j, "scenario")} />
+          <div className="flex flex-col gap-6">
+            <CaseTable
+              title="단위 테스트"
+              cases={scenario.unit_test_cases}
+              onChange={(i, f, v) => updateCase("unit_test_cases", i, f, v)}
+              onAdd={() => addCase("unit_test_cases")}
+              onDelete={(i) => deleteCase("unit_test_cases", i)}
+            />
+            <CaseTable
+              title="통합 테스트"
+              cases={scenario.integration_test_cases}
+              onChange={(i, f, v) => updateCase("integration_test_cases", i, f, v)}
+              onAdd={() => addCase("integration_test_cases")}
+              onDelete={(i) => deleteCase("integration_test_cases", i)}
+            />
+          </div>
         </div>
       )}
 
       {tab === "screen" && screenSpec && (
-        <ScreenEditor spec={screenSpec} onChange={edited(setScreenSpec)} />
+        <div className="flex flex-col gap-4">
+          <VersionSelector jobId={id} specType="screen_spec" onRollback={(j) => handleRollbackSuccess(j, "screen")} />
+          <ScreenEditor spec={screenSpec} onChange={edited(setScreenSpec)} />
+        </div>
       )}
 
       {tab === "manual" && userManual && (
-        <ManualEditor
-          manual={userManual}
-          onChange={edited(setUserManual)}
-          images={manualImages}
-          onUpload={handleUploadImage}
-          onDelete={handleDeleteImage}
-        />
+        <div className="flex flex-col gap-4">
+          <VersionSelector jobId={id} specType="user_manual" onRollback={(j) => handleRollbackSuccess(j, "manual")} />
+          <ManualEditor
+            manual={userManual}
+            onChange={edited(setUserManual)}
+            images={manualImages}
+            onUpload={handleUploadImage}
+            onDelete={handleDeleteImage}
+            useMockupImages={useMockupImages}
+            onUseMockupImagesChange={setUseMockupImages}
+          />
+        </div>
       )}
 
       {render && (
@@ -332,11 +374,13 @@ export default function ReviewPage({ params }: { params: Promise<{ id: string }>
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
-            {Object.keys(render.downloads).map((kind) => (
-              <a key={kind} href={downloadUrl(id, kind)} className="btn-success">
-                ↓ {DOWNLOAD_LABEL[kind] ?? kind}
-              </a>
-            ))}
+            {Object.keys(render.downloads)
+              .filter((kind) => kind !== "user-manual-pdf")
+              .map((kind) => (
+                <a key={kind} href={downloadUrl(id, kind)} className="btn-success">
+                  ↓ {DOWNLOAD_LABEL[kind] ?? kind}
+                </a>
+              ))}
             <Link href="/" className="btn-secondary">
               홈으로
             </Link>
@@ -376,6 +420,7 @@ const DOWNLOAD_LABEL: Record<string, string> = {
   table_spec: "테이블정의서",
   interface_spec: "인터페이스정의서",
   user_manual: "사용자 매뉴얼",
+  "user-manual-pdf": "사용자 매뉴얼 (PDF)",
 };
 
 function Centered({ children }: { children: React.ReactNode }) {

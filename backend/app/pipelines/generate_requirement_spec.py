@@ -12,9 +12,9 @@ from collections.abc import Callable
 from pathlib import Path
 
 from app.config import get_settings
-from app.llm.generate import generate_validated
 from app.llm.prompts import REQUIREMENT_SPEC_SYSTEM, build_requirement_spec_prompt
-from app.pipelines.source_loader import load_source
+from app.pipelines.chunking import generate_map_reduce
+from app.pipelines.source_loader import SourceDocument, load_source
 from app.schemas.requirement_spec import RequirementSpecDocument
 
 logger = logging.getLogger(__name__)
@@ -42,20 +42,25 @@ def generate_requirement_spec(
 
     if on_progress is not None:
         on_progress("generating")
-    logger.info("요구사항정의서 LLM 생성 시작 (검증-재시도 루프)")
-    prompt = build_requirement_spec_prompt(
+    logger.info("요구사항정의서 LLM 생성 시작 (Map-Reduce 적용 가능)")
+
+    def build_prompt(src: SourceDocument) -> str:
+        return build_requirement_spec_prompt(
+            src,
+            RequirementSpecDocument,
+            project_name=project_name,
+            system_name=system_name,
+            author=author,
+            written_date=written_date,
+        )
+
+    requirement_spec = generate_map_reduce(
         source,
         RequirementSpecDocument,
-        project_name=project_name,
-        system_name=system_name,
-        author=author,
-        written_date=written_date,
-    )
-    requirement_spec = generate_validated(
-        prompt,
-        RequirementSpecDocument,
+        build_prompt,
         system=REQUIREMENT_SPEC_SYSTEM,
         model=model or get_settings().requirement_spec_model,
+        on_progress=on_progress,
     )
     logger.info("요구사항정의서 생성 완료: 요건 %d건", len(requirement_spec.requirements))
     return requirement_spec

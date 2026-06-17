@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 from app.api.schemas import JobOut, RenderOut
 from app.db.models import Job
 from app.db.session import get_db
+from app.exceptions import SiDocgenError
 from app.schemas.proposal import ProposalDocument
 from app.schemas.requirement_spec import RequirementSpecDocument
 from app.schemas.screen_spec import ScreenSpecDocument
@@ -42,6 +43,7 @@ DOWNLOAD_MEDIA_TYPES = {
     "screen_spec": PPTX_MEDIA_TYPE,
     "requirement_spec": DOCX_MEDIA_TYPE,
     "user_manual": DOCX_MEDIA_TYPE,
+    "user-manual-pdf": "application/pdf",
 }
 
 logger = logging.getLogger(__name__)
@@ -161,7 +163,9 @@ def update_scenario(
     RTM 정합성은 시나리오에서 결정론적으로 파생되므로 구조적으로 보장된다.
     """
     job = _require_job(db, job_id)
-    job.scenario_json = scenario.model_dump(mode="json")
+    new_data = scenario.model_dump(mode="json")
+    job_service.save_job_history(db, job_id, "scenario", new_data)
+    job.scenario_json = new_data
     db.commit()
     db.refresh(job)
     return job
@@ -190,7 +194,9 @@ def update_screen_spec(
     job = _require_job(db, job_id)
     if job.screen_spec_json is None:
         raise HTTPException(status_code=409, detail="화면정의서가 없습니다 (체인 잡이 아님)")
-    job.screen_spec_json = screen_spec.model_dump(mode="json")
+    new_data = screen_spec.model_dump(mode="json")
+    job_service.save_job_history(db, job_id, "screen_spec", new_data)
+    job.screen_spec_json = new_data
     db.commit()
     db.refresh(job)
     return job
@@ -219,7 +225,9 @@ def update_requirement_spec(
     job = _require_job(db, job_id)
     if job.requirement_spec_json is None:
         raise HTTPException(status_code=409, detail="요구사항정의서가 없습니다 (요건 체인 잡 아님)")
-    job.requirement_spec_json = requirement_spec.model_dump(mode="json")
+    new_data = requirement_spec.model_dump(mode="json")
+    job_service.save_job_history(db, job_id, "requirement_spec", new_data)
+    job.requirement_spec_json = new_data
     db.commit()
     db.refresh(job)
     return job
@@ -274,7 +282,9 @@ def update_user_manual(
     job = _require_job(db, job_id)
     if job.user_manual_json is None:
         raise HTTPException(status_code=409, detail="사용자 매뉴얼이 없습니다 (생성 잡이 아님)")
-    job.user_manual_json = user_manual.model_dump(mode="json")
+    new_data = user_manual.model_dump(mode="json")
+    job_service.save_job_history(db, job_id, "user_manual", new_data)
+    job.user_manual_json = new_data
     db.commit()
     db.refresh(job)
     return job
@@ -303,7 +313,9 @@ def update_proposal(
     job = _require_job(db, job_id)
     if job.proposal_json is None:
         raise HTTPException(status_code=409, detail="제안서가 없습니다 (생성 잡이 아님)")
-    job.proposal_json = proposal.model_dump(mode="json")
+    new_data = proposal.model_dump(mode="json")
+    job_service.save_job_history(db, job_id, "proposal", new_data)
+    job.proposal_json = new_data
     db.commit()
     db.refresh(job)
     return job
@@ -355,7 +367,13 @@ def delete_manual_image(
 
 
 @router.post("/{job_id}/render", response_model=RenderOut)
-def render_job(job_id: str, db: Annotated[Session, Depends(get_db)]) -> RenderOut:
+def render_job(
+    job_id: str,
+    db: Annotated[Session, Depends(get_db)],
+    use_mockup_images: bool = Query(
+        False, description="사용자 매뉴얼에 화면정의서 목업 이미지 자동 사용 여부"
+    ),
+) -> RenderOut:
     """검수된 산출물(시나리오·화면·요구사항·WBS·테이블·인터페이스·매뉴얼)을 재렌더링한다 (동기)."""
     job = _require_job(db, job_id)
     if not any(
@@ -382,13 +400,43 @@ def render_job(job_id: str, db: Annotated[Session, Depends(get_db)]) -> RenderOu
         job.user_manual_json,
         proposal_json=job.proposal_json,
         templates=templates_service.resolve_all(db, job.template_ids),
+        use_mockup_images=use_mockup_images,
     )
+    downloads = {kind: f"/jobs/{job_id}/download/{kind}" for kind in result.kinds}
+    if "user_manual" in result.kinds:
+        downloads["user-manual-pdf"] = f"/jobs/{job_id}/download/user-manual-pdf"
+
     return RenderOut(
         unit_count=result.unit_count,
         integration_count=result.integration_count,
         requirement_count=result.requirement_count,
         screen_count=result.screen_count,
-        downloads={kind: f"/jobs/{job_id}/download/{kind}" for kind in result.kinds},
+        downloads=downloads,
+    )
+
+
+@router.get("/{job_id}/download/user-manual-pdf")
+def download_user_manual_pdf(
+    job_id: str,
+    db: Annotated[Session, Depends(get_db)],
+) -> FileResponse:
+    """사용자 매뉴얼 docx 파일을 pdf로 변환하여 다운로드한다."""
+    _require_job(db, job_id)
+    try:
+        pdf_path = job_service.convert_user_manual_to_pdf(job_id)
+    except job_service.LibreOfficeNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except job_service.PdfConversionError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500, detail=f"PDF 변환 중 알 수 없는 오류 발생: {exc}"
+        ) from exc
+
+    return FileResponse(
+        pdf_path,
+        filename="user_manual.pdf",
+        media_type="application/pdf",
     )
 
 
@@ -411,3 +459,116 @@ def _require_job(db: Session, job_id: str) -> Job:
     if job is None:
         raise HTTPException(status_code=404, detail=f"잡을 찾을 수 없습니다: {job_id}")
     return job
+
+
+@router.get("/{job_id}/versions")
+def list_job_versions(
+    job_id: str,
+    spec_type: str = Query(
+        ..., description="스펙 종류 (requirement_spec|scenario|screen_spec|user_manual|proposal)"
+    ),
+    db: Annotated[Session, Depends(get_db)] = None,
+) -> list[dict]:
+    """특정 스펙의 버전 관리 히스토리 목록을 반환한다 (드롭다운 노출용)."""
+    from app.db.models import JobHistory
+
+    histories = db.scalars(
+        select(JobHistory)
+        .where(JobHistory.job_id == job_id, JobHistory.spec_type == spec_type)
+        .order_by(JobHistory.version.desc())
+    ).all()
+
+    result = []
+    for h in histories:
+        result.append(
+            {
+                "version": h.version,
+                "created_at": h.created_at.isoformat(),
+                "updated_by": h.updated_by or "system",
+            }
+        )
+
+    if not result:
+        # 히스토리가 비어있으면 현재 DB의 원본 데이터를 가상의 버전 1로 제공
+        job = db.get(Job, job_id)
+        if job:
+            has_data = False
+            if spec_type == "requirement_spec" and job.requirement_spec_json:
+                has_data = True
+            elif spec_type == "scenario" and job.scenario_json:
+                has_data = True
+            elif spec_type == "screen_spec" and job.screen_spec_json:
+                has_data = True
+            elif spec_type == "user_manual" and job.user_manual_json:
+                has_data = True
+            elif spec_type == "proposal" and job.proposal_json:
+                has_data = True
+
+            if has_data:
+                result.append(
+                    {
+                        "version": 1,
+                        "created_at": job.created_at.isoformat(),
+                        "updated_by": job.author or "system",
+                    }
+                )
+    return result
+
+
+@router.get("/{job_id}/versions/{version}")
+def get_job_version_detail(
+    job_id: str,
+    version: int,
+    spec_type: str = Query(
+        ..., description="스펙 종류 (requirement_spec|scenario|screen_spec|user_manual|proposal)"
+    ),
+    db: Annotated[Session, Depends(get_db)] = None,
+) -> dict:
+    """특정 스펙의 특정 버전 JSON 스냅샷 데이터를 반환한다 (Diff 및 롤백 확인용)."""
+    from app.db.models import JobHistory
+
+    stmt = select(JobHistory).where(
+        JobHistory.job_id == job_id,
+        JobHistory.spec_type == spec_type,
+        JobHistory.version == version,
+    )
+    history = db.scalar(stmt)
+    if not history:
+        # 가상 버전 1 요청이고 히스토리가 비어 있다면, 현재 활성 원본 데이터 반환
+        if version == 1:
+            job = db.get(Job, job_id)
+            if job:
+                data = None
+                if spec_type == "requirement_spec":
+                    data = job.requirement_spec_json
+                elif spec_type == "scenario":
+                    data = job.scenario_json
+                elif spec_type == "screen_spec":
+                    data = job.screen_spec_json
+                elif spec_type == "user_manual":
+                    data = job.user_manual_json
+                elif spec_type == "proposal":
+                    data = job.proposal_json
+                if data is not None:
+                    return data
+        raise HTTPException(status_code=404, detail="해당 버전의 히스토리를 찾을 수 없습니다.")
+    return history.data_json
+
+
+@router.post("/{job_id}/rollback/{version}", response_model=JobOut)
+def rollback_job_spec(
+    job_id: str,
+    version: int,
+    spec_type: str = Query(
+        ..., description="스펙 종류 (requirement_spec|scenario|screen_spec|user_manual|proposal)"
+    ),
+    db: Annotated[Session, Depends(get_db)] = None,
+) -> Job:
+    """특정 스펙을 특정 과거 버전 데이터로 되돌린다."""
+    try:
+        job = job_service.rollback_job_spec(db, job_id, spec_type, version)
+        return job
+    except SiDocgenError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"롤백 처리 중 오류 발생: {exc}") from exc

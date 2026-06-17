@@ -178,3 +178,33 @@ def test_비매뉴얼_잡은_409(client: TestClient) -> None:
     job_id = resp.json()["id"]
     assert resp.json()["with_user_manual"] is False
     assert client.get(f"/jobs/{job_id}/user-manual").status_code == 409
+
+
+def test_목업_이미지_자동_추출_및_렌더(client: TestClient) -> None:
+    job_id = _manual_job(client)
+    # 수동 캡처 업로드 없이 render 시 use_mockup_images=true를 전달
+    # 이 경우 Pillow Fallback에 의해 SCR-001.png 더미가 생성되어 주입됨
+    render = client.post(f"/jobs/{job_id}/render?use_mockup_images=true")
+    assert render.status_code == 200
+    assert "user_manual" in render.json()["downloads"]
+    assert "user-manual-pdf" in render.json()["downloads"]
+
+    dl = client.get(f"/jobs/{job_id}/download/user_manual")
+    assert dl.status_code == 200
+    doc = Document(io.BytesIO(dl.content))
+    # 더미 목업 이미지가 정상 주입되었으므로 inline_shapes 개수가 1개 이상임
+    assert len(doc.inline_shapes) >= 1
+
+
+def test_매뉴얼_PDF_다운로드(client: TestClient) -> None:
+    job_id = _manual_job(client)
+    # 렌더링을 먼저 수행해야 다운로드 가능
+    render = client.post(f"/jobs/{job_id}/render")
+    assert render.status_code == 200
+    assert "user-manual-pdf" in render.json()["downloads"]
+
+    # 테스트 환경이므로 soffice가 없더라도 더미 PDF 가 정상 리턴됨
+    dl = client.get(f"/jobs/{job_id}/download/user-manual-pdf")
+    assert dl.status_code == 200
+    assert dl.headers["content-type"] == "application/pdf"
+    assert b"%PDF-1.4" in dl.content

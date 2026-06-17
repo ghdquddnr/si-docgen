@@ -10,9 +10,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from app.config import get_settings
-from app.llm.generate import generate_validated
 from app.llm.prompts import TABLE_SPEC_SYSTEM, build_table_spec_prompt
-from app.pipelines.source_loader import load_source
+from app.pipelines.chunking import generate_map_reduce
+from app.pipelines.source_loader import SourceDocument, load_source
 from app.renderers.table_spec_renderer import render_table_spec
 from app.schemas.table_spec import TableSpecDocument
 
@@ -52,20 +52,25 @@ def generate_table_spec(
 
     if on_progress is not None:
         on_progress("generating")
-    logger.info("테이블정의서 LLM 생성 시작 (검증-재시도 루프)")
-    prompt = build_table_spec_prompt(
+    logger.info("테이블정의서 LLM 생성 시작 (Map-Reduce 적용 가능)")
+
+    def build_prompt(src: SourceDocument) -> str:
+        return build_table_spec_prompt(
+            src,
+            TableSpecDocument,
+            project_name=project_name,
+            system_name=system_name,
+            author=author,
+            written_date=written_date,
+        )
+
+    table_spec = generate_map_reduce(
         source,
         TableSpecDocument,
-        project_name=project_name,
-        system_name=system_name,
-        author=author,
-        written_date=written_date,
-    )
-    table_spec = generate_validated(
-        prompt,
-        TableSpecDocument,
+        build_prompt,
         system=TABLE_SPEC_SYSTEM,
         model=model or get_settings().table_spec_model,
+        on_progress=on_progress,
     )
     logger.info("테이블정의서 생성 완료: 테이블 %d개", len(table_spec.tables))
     return table_spec

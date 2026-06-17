@@ -16,12 +16,57 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
+import holidays
 from openpyxl import load_workbook
 from openpyxl.cell.cell import Cell
 from openpyxl.worksheet.worksheet import Worksheet
 
 from app.exceptions import RenderError
 from app.schemas.wbs import WBSDocument, WBSTask
+
+_KR_HOLIDAYS = holidays.country_holidays("KR")
+
+
+def is_workday(d: date) -> bool:
+    """주말과 대한민국 공휴일(대체공휴일 포함)이 아니면 True."""
+    if d.weekday() >= 5:
+        return False
+    if d in _KR_HOLIDAYS:
+        return False
+    return True
+
+
+def next_workday(d: date) -> date:
+    """주어진 날짜 다음 날부터 시작하여 가장 처음 도래하는 영업일을 반환한다."""
+    curr = d + timedelta(days=1)
+    while not is_workday(curr):
+        curr += timedelta(days=1)
+    return curr
+
+
+def get_workday_start(d: date) -> date:
+    """주어진 날짜가 영업일이면 그대로, 아니면 그 이후 최초 영업일을 반환한다."""
+    curr = d
+    while not is_workday(curr):
+        curr += timedelta(days=1)
+    return curr
+
+
+def add_workdays(start: date, days: int) -> date:
+    """start 일자를 포함하여 days 영업일만큼 일정을 진행시켰을 때의 종료일을 계산한다.
+
+    days >= 1 일 때 작동한다.
+    """
+    if days <= 1:
+        return start
+    curr = start
+    workdays_added = 1
+    while workdays_added < days:
+        curr += timedelta(days=1)
+        if is_workday(curr):
+            workdays_added += 1
+    return curr
+
 
 # 템플릿 구조 상수 (backend/templates/wbs.xlsx 와 일치해야 함)
 STYLE_ROW = 9
@@ -89,20 +134,61 @@ def _assign_numbers(tasks: list[WBSTask], prefix: str, c: _Computed) -> None:
 
 
 def _schedule_leaves(doc: WBSDocument, c: _Computed) -> None:
-    """작업(leaf) 태스크의 시작/종료일을 선행 의존을 반영해 전진 계산한다."""
+    """작업(leaf) 태스크의 시작/종료일을 선행 의존을 반영해 전진 계산한다.
+
+    영업일 기준(주말 및 대한민국 법정 공휴일 배제)으로 시작일과 종료일을 산정한다.
+    """
     leaves = [t for t in c.order if not t.is_summary]
+    tasks_dict = {t.id: t for t in c.order}
+    parent_map = {}
+    for t in c.order:
+        for child in t.children:
+            parent_map[child.id] = t.id
+
+    def get_ancestors(tid: str) -> list[str]:
+        ancestors = [tid]
+        curr = tid
+        while curr in parent_map:
+            curr = parent_map[curr]
+            ancestors.append(curr)
+        return ancestors
+
+    def get_leaf_descendants(tid: str) -> set[str]:
+        t = tasks_dict[tid]
+        if not t.is_summary:
+            return {t.id}
+        res = set()
+        for child in t.children:
+            res.update(get_leaf_descendants(child.id))
+        return res
+
+    # Resolve predecessors to leaf task IDs
+    resolved_preds: dict[str, set[str]] = {}
+    for task in leaves:
+        preds = set()
+        for ancestor_id in get_ancestors(task.id):
+            ancestor_task = tasks_dict[ancestor_id]
+            for pred in ancestor_task.predecessors:
+                if pred in tasks_dict:
+                    preds.update(get_leaf_descendants(pred))
+        resolved_preds[task.id] = preds
+
     pending = list(leaves)
     while pending:
         progressed = False
         for task in list(pending):
-            if all(p in c.end for p in task.predecessors):
-                start = doc.start_date
-                for pred in task.predecessors:
-                    candidate = c.end[pred] + timedelta(days=1)
+            preds = resolved_preds[task.id]
+            if all(p in c.end for p in preds):
+                # 프로젝트 시작일 자체가 공휴일/주말일 수 있으므로 최초 영업일로 보정
+                start = get_workday_start(doc.start_date)
+                for pred in preds:
+                    # 선행 작업 종료일 다음 날의 최초 영업일을 계산
+                    candidate = next_workday(c.end[pred])
                     if candidate > start:
                         start = candidate
                 c.start[task.id] = start
-                c.end[task.id] = start + timedelta(days=task.duration_days - 1)
+                # 시작일을 포함한 duration_days 영업일 후의 날짜 계산
+                c.end[task.id] = add_workdays(start, task.duration_days)
                 c.effort[task.id] = task.effort_md
                 pending.remove(task)
                 progressed = True

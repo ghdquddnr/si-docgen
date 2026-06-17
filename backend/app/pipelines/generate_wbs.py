@@ -11,9 +11,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from app.config import get_settings
-from app.llm.generate import generate_validated
 from app.llm.prompts import WBS_SYSTEM, build_wbs_prompt
-from app.pipelines.source_loader import load_source
+from app.pipelines.chunking import generate_map_reduce
+from app.pipelines.source_loader import SourceDocument, load_source
 from app.renderers.wbs_renderer import render_wbs
 from app.schemas.wbs import WBSDocument, WBSTask
 
@@ -55,21 +55,26 @@ def generate_wbs(
 
     if on_progress is not None:
         on_progress("generating")
-    logger.info("WBS LLM 생성 시작 (검증-재시도 루프)")
-    prompt = build_wbs_prompt(
+    logger.info("WBS LLM 생성 시작 (Map-Reduce 적용 가능)")
+
+    def build_prompt(src: SourceDocument) -> str:
+        return build_wbs_prompt(
+            src,
+            WBSDocument,
+            project_name=project_name,
+            system_name=system_name,
+            author=author,
+            written_date=written_date,
+            start_date=start_date,
+        )
+
+    wbs = generate_map_reduce(
         source,
         WBSDocument,
-        project_name=project_name,
-        system_name=system_name,
-        author=author,
-        written_date=written_date,
-        start_date=start_date,
-    )
-    wbs = generate_validated(
-        prompt,
-        WBSDocument,
+        build_prompt,
         system=WBS_SYSTEM,
         model=model or get_settings().wbs_model,
+        on_progress=on_progress,
     )
     logger.info("WBS 생성 완료: 최상위 %d개", len(wbs.tasks))
     return wbs

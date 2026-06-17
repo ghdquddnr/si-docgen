@@ -11,9 +11,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from app.config import get_settings
-from app.llm.generate import generate_validated
 from app.llm.prompts import PROPOSAL_SYSTEM, build_proposal_prompt
-from app.pipelines.source_loader import load_source
+from app.pipelines.chunking import generate_map_reduce
+from app.pipelines.source_loader import SourceDocument, load_source
 from app.renderers.proposal_renderer import render_proposal
 from app.schemas.proposal import ProposalDocument
 
@@ -54,21 +54,26 @@ def generate_proposal(
 
     if on_progress is not None:
         on_progress("generating")
-    logger.info("제안서 LLM 생성 시작 (검증-재시도 루프)")
-    prompt = build_proposal_prompt(
+    logger.info("제안서 LLM 생성 시작 (Map-Reduce 적용 가능)")
+
+    def build_prompt(src: SourceDocument) -> str:
+        return build_proposal_prompt(
+            src,
+            ProposalDocument,
+            project_name=project_name,
+            system_name=system_name,
+            author=author,
+            client=client,
+            written_date=written_date,
+        )
+
+    proposal = generate_map_reduce(
         source,
         ProposalDocument,
-        project_name=project_name,
-        system_name=system_name,
-        author=author,
-        client=client,
-        written_date=written_date,
-    )
-    proposal = generate_validated(
-        prompt,
-        ProposalDocument,
+        build_prompt,
         system=PROPOSAL_SYSTEM,
         model=model or get_settings().proposal_model,
+        on_progress=on_progress,
     )
     logger.info("제안서 생성 완료: 슬라이드 %d개", len(proposal.slides))
     return proposal

@@ -78,29 +78,61 @@ class WBSDocument(BaseModel):
             raise ValueError(f"태스크 id 가 중복되었습니다: {dups}")
 
         leaf_ids = {t.id for t in flat if not t.is_summary}
+        all_task_ids = {t.id for t in flat}
 
         # ② 작업(leaf) 태스크는 기간 1일 이상
         bad_duration = sorted(t.id for t in flat if not t.is_summary and t.duration_days < 1)
         if bad_duration:
             raise ValueError(f"작업 태스크는 기간이 1 이상이어야 합니다: {bad_duration}")
 
-        # ③ 선행 참조는 작업 태스크 id 만, 자기 자신 금지
+        # ③ 선행 참조는 존재하는 태스크 id 만, 자기 자신 금지
         for task in flat:
             for pred in task.predecessors:
                 if pred == task.id:
                     raise ValueError(f"태스크 '{task.id}' 가 자기 자신을 선행으로 참조합니다")
-                if pred not in leaf_ids:
+                if pred not in all_task_ids:
                     raise ValueError(
-                        f"태스크 '{task.id}' 의 선행 '{pred}' 가 존재하는 작업 태스크가 아닙니다"
+                        f"태스크 '{task.id}' 의 선행 '{pred}' 가 존재하지 않는 태스크입니다"
                     )
 
-        # ④ 선행 그래프 순환 검출 (작업 태스크 한정)
+        # ④ 선행 그래프 순환 검출 (요약 태스크 선행 참조를 리프 태스크로 풀어서 검사)
         self._check_no_cycle(flat, leaf_ids)
         return self
 
     @staticmethod
     def _check_no_cycle(flat: list[WBSTask], leaf_ids: set[str]) -> None:
-        preds = {t.id: [p for p in t.predecessors] for t in flat if t.id in leaf_ids}
+        tasks_dict = {t.id: t for t in flat}
+        parent_map = {}
+        for t in flat:
+            for child in t.children:
+                parent_map[child.id] = t.id
+
+        def get_leaf_descendants(tid: str) -> set[str]:
+            t = tasks_dict[tid]
+            if not t.is_summary:
+                return {t.id}
+            res = set()
+            for child in t.children:
+                res.update(get_leaf_descendants(child.id))
+            return res
+
+        def get_ancestors(tid: str) -> list[str]:
+            ancestors = [tid]
+            curr = tid
+            while curr in parent_map:
+                curr = parent_map[curr]
+                ancestors.append(curr)
+            return ancestors
+
+        # Resolve leaf-to-leaf dependencies
+        leaf_dependencies: dict[str, set[str]] = {lid: set() for lid in leaf_ids}
+        for lid in leaf_ids:
+            for ancestor_id in get_ancestors(lid):
+                ancestor_task = tasks_dict[ancestor_id]
+                for pred in ancestor_task.predecessors:
+                    if pred in tasks_dict:
+                        leaf_dependencies[lid].update(get_leaf_descendants(pred))
+
         state: dict[str, int] = {}  # 0=방문중, 1=완료
 
         def visit(node: str) -> None:
@@ -109,9 +141,15 @@ class WBSDocument(BaseModel):
             if state.get(node) == 0:
                 raise ValueError(f"선행 관계에 순환이 있습니다 (태스크 '{node}')")
             state[node] = 0
-            for p in preds.get(node, []):
+            for p in leaf_dependencies.get(node, []):
+                if p == node:
+                    raise ValueError(
+                        f"태스크 '{node}' 가 자기 자신(또는 하위/상위 태스크)을 "
+                        "선행으로 참조하거나 순환을 형성합니다"
+                    )
                 visit(p)
             state[node] = 1
 
-        for node in preds:
-            visit(node)
+        for lid in leaf_ids:
+            visit(lid)
+
