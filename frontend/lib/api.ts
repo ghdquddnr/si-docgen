@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // 백엔드 API 타입 클라이언트. 컴포넌트에서 fetch 를 직접 부르지 않고 이 모듈만 사용한다.
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000";

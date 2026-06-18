@@ -105,20 +105,6 @@ class TemplateAnalysis:
     columns: list[ColumnSuggestion]
     warnings: list[str] = field(default_factory=list)
 
-    def to_dict(self) -> dict:
-        return {
-            "kind": self.kind,
-            "sheet_name": self.sheet_name,
-            "cover": self.cover,
-            "header_row": self.header_row,
-            "style_row": self.style_row,
-            "columns": [
-                {"field": c.field_label, "column": c.column_letter, "matched": c.matched_text}
-                for c in self.columns
-            ],
-            "warnings": self.warnings,
-        }
-
 
 def _norm(value: object) -> str:
     """공백 제거 + 소문자 정규화 (한글은 케이스 영향 없음)."""

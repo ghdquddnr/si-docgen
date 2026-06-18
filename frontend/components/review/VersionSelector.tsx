@@ -1,6 +1,7 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { getJobVersions, rollbackJobSpec, type Job, type JobVersion } from "@/lib/api";
 import { DiffViewerModal } from "./DiffViewerModal";
 
@@ -16,7 +17,7 @@ export function VersionSelector({ jobId, specType, onRollback }: VersionSelector
   const [isDiffOpen, setIsDiffOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  async function fetchVersions() {
+  const fetchVersions = useCallback(async () => {
     try {
       const list = await getJobVersions(jobId, specType);
       setVersions(list);
@@ -27,11 +28,11 @@ export function VersionSelector({ jobId, specType, onRollback }: VersionSelector
     } catch (e) {
       console.error("버전 리스트 획득 실패:", e);
     }
-  }
+  }, [jobId, specType]);
 
   useEffect(() => {
     fetchVersions();
-  }, [jobId, specType]);
+  }, [fetchVersions]);
 
   const maxVersion = versions.length > 0 ? Math.max(...versions.map((v) => v.version)) : 1;
   const showActions = selectedVersion !== "" && selectedVersion !== maxVersion;
